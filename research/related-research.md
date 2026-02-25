@@ -286,9 +286,9 @@ Alpamayo는 세 단계의 순차적 파이프라인으로 구성된다:
 
 **Alpamayo 관련성**: **중간**. 디스크리트 GPU 환경에서 GPU 메모리 초과 사용 시 NVMe SSD로의 투명한 페이징 메커니즘을 제공한다. Demand Layering과 조합하면 더 큰 모델을 더 작은 GPU에서 실행할 수 있는 기반 기술이 된다.
 
-### 2.3 양자화 기반 접근
+### 2.3 양자화 기반 접근 (배제 - 참고용: 모델 정확도 저하 방식)
 
-#### 2.3.1 AWQ (MLSys 2024 Best Paper)
+#### 2.3.1 AWQ (MLSys 2024 Best Paper) (배제 - 참고용)
 
 | 항목 | 내용 |
 |------|------|
@@ -301,7 +301,7 @@ Alpamayo는 세 단계의 순차적 파이프라인으로 구성된다:
 
 **Alpamayo 관련성**: **매우 높음**. VLM 8.2B를 4-bit AWQ 양자화하면 ~4.1GB -> ~2GB로 줄어든다. Diffusion Decoder 2.3B도 ~1.2GB -> ~0.6GB. 이를 Demand Layering/오프로딩과 조합하면 12GB VRAM에서 충분히 실행 가능해진다. AWQ는 캘리브레이션 데이터 요구량이 적어 적용이 용이하다.
 
-#### 2.3.2 GPTQ
+#### 2.3.2 GPTQ (배제 - 참고용)
 
 | 항목 | 내용 |
 |------|------|
@@ -312,7 +312,7 @@ Alpamayo는 세 단계의 순차적 파이프라인으로 구성된다:
 
 **Alpamayo 관련성**: **높음**. GPU 추론에 최적화된 양자화 기법으로, VLM과 Diffusion Decoder 모두에 적용 가능하다. 특히 Marlin 커널과의 조합은 양자화된 모델의 GPU 추론 속도를 극대화한다.
 
-#### 2.3.3 SqueezeLLM (ICML 2024)
+#### 2.3.3 SqueezeLLM (ICML 2024) (배제 - 참고용)
 
 | 항목 | 내용 |
 |------|------|
@@ -324,7 +324,7 @@ Alpamayo는 세 단계의 순차적 파이프라인으로 구성된다:
 
 **Alpamayo 관련성**: **높음**. 3-bit 양자화로 VLM 8.2B를 ~3GB 수준으로 압축 가능. 특히 이상치 가중치를 희소 형식으로 별도 관리하는 기법은 VLM의 품질 유지에 효과적이다.
 
-#### 2.3.4 Q-VLM (NeurIPS 2024)
+#### 2.3.4 Q-VLM (NeurIPS 2024) (배제 - 참고용)
 
 | 항목 | 내용 |
 |------|------|
@@ -571,7 +571,7 @@ VRAM 사용: ~1-2GB (최소)
 
 12. K. Thorat et al., "Superpipeline: A Universal Approach for Reducing GPU Memory Usage in Large Models," arXiv:2410.08791, 2024. [arXiv](https://arxiv.org/abs/2410.08791)
 
-### 양자화
+### 양자화 (배제 - 참고용)
 
 13. J. Lin et al., "AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration," in *Proc. MLSys*, 2024 (Best Paper). [GitHub](https://github.com/mit-han-lab/llm-awq)
 
