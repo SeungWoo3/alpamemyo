@@ -1,0 +1,27 @@
+[
+  {
+    "config": "demand_layering_direct_cuda",
+    "cuda_load_time": 145.05,
+    "setup_time": 51.95,
+    "gpu_resident_gb": 9.86,
+    "vlm_layers_offloaded": 30,
+    "vlm_layers_gpu_resident": 6,
+    "inference_time": 116.51,
+    "peak_vram_gb": 11.03,
+    "cot_preview": "[['Keep lane to continue driving since no critical agent needs attention.']]",
+    "error": null,
+    "vlm_transfer_stats": {
+      "total_transfers": 900,
+      "h2d_count": 450,
+      "d2h_count": 450,
+      "h2d_total_s": 28.905,
+      "d2h_total_s": 70.523,
+      "h2d_avg_ms": 64.23,
+      "d2h_avg_ms": 156.72
+    },
+    "expert_transfer_stats": {
+      "note": "Expert on GPU (no offloading)"
+    },
+    "total_time": 319.54
+  }
+]
