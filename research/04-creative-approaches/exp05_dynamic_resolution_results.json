@@ -1,0 +1,279 @@
+{
+  "vision_token_analysis": {
+    "by_resolution": [
+      {
+        "resolution": "320x576",
+        "description": "\uc6d0\ubcf8 (320x576)",
+        "original_pixels": 184320,
+        "adjusted_resolution": "336x588",
+        "adjusted_pixels": 197568,
+        "patches_h": 24,
+        "patches_w": 42,
+        "tokens_per_frame_after_merge": 252,
+        "temporal_groups": 4,
+        "total_vision_tokens": 1008,
+        "ratio_vs_baseline": 1.0
+      },
+      {
+        "resolution": "224x400",
+        "description": "\ucd95\uc18c1 (224x400)",
+        "original_pixels": 89600,
+        "adjusted_resolution": "308x560",
+        "adjusted_pixels": 172480,
+        "patches_h": 22,
+        "patches_w": 40,
+        "tokens_per_frame_after_merge": 220,
+        "temporal_groups": 4,
+        "total_vision_tokens": 880,
+        "ratio_vs_baseline": 0.873
+      },
+      {
+        "resolution": "160x288",
+        "description": "\ucd95\uc18c2 (160x288)",
+        "original_pixels": 46080,
+        "adjusted_resolution": "308x560",
+        "adjusted_pixels": 172480,
+        "patches_h": 22,
+        "patches_w": 40,
+        "tokens_per_frame_after_merge": 220,
+        "temporal_groups": 4,
+        "total_vision_tokens": 880,
+        "ratio_vs_baseline": 0.873
+      },
+      {
+        "resolution": "112x196",
+        "description": "\ucd95\uc18c3 (112x196)",
+        "original_pixels": 21952,
+        "adjusted_resolution": "308x560",
+        "adjusted_pixels": 172480,
+        "patches_h": 22,
+        "patches_w": 40,
+        "tokens_per_frame_after_merge": 220,
+        "temporal_groups": 4,
+        "total_vision_tokens": 880,
+        "ratio_vs_baseline": 0.873
+      },
+      {
+        "resolution": "80x144",
+        "description": "\ucd95\uc18c4 (80x144)",
+        "original_pixels": 11520,
+        "adjusted_resolution": "308x560",
+        "adjusted_pixels": 172480,
+        "patches_h": 22,
+        "patches_w": 40,
+        "tokens_per_frame_after_merge": 220,
+        "temporal_groups": 4,
+        "total_vision_tokens": 880,
+        "ratio_vs_baseline": 0.873
+      },
+      {
+        "resolution": "448x800",
+        "description": "\ud655\ub3001 (448x800)",
+        "original_pixels": 358400,
+        "adjusted_resolution": "336x616",
+        "adjusted_pixels": 206976,
+        "patches_h": 24,
+        "patches_w": 44,
+        "tokens_per_frame_after_merge": 264,
+        "temporal_groups": 4,
+        "total_vision_tokens": 1056,
+        "ratio_vs_baseline": 1.048
+      },
+      {
+        "resolution": "640x1152",
+        "description": "\ud655\ub3002 (640x1152)",
+        "original_pixels": 737280,
+        "adjusted_resolution": "336x616",
+        "adjusted_pixels": 206976,
+        "patches_h": 24,
+        "patches_w": 44,
+        "tokens_per_frame_after_merge": 264,
+        "temporal_groups": 4,
+        "total_vision_tokens": 1056,
+        "ratio_vs_baseline": 1.048
+      }
+    ]
+  },
+  "memory_impact": [
+    {
+      "name": "\uc6d0\ubcf8 320x576",
+      "vision_tokens": 4116,
+      "est_total": 4414,
+      "kv_cache_mb": 310.36,
+      "attn_activation_mb": 148.65,
+      "vision_activation_mb": 8.04,
+      "total_dynamic_memory_mb": 467.04
+    },
+    {
+      "name": "\ucd95\uc18c 224x400",
+      "vision_tokens": 2744,
+      "est_total": 3042,
+      "kv_cache_mb": 213.89,
+      "attn_activation_mb": 70.6,
+      "vision_activation_mb": 5.36,
+      "total_dynamic_memory_mb": 289.85
+    },
+    {
+      "name": "\ucd95\uc18c 160x288",
+      "vision_tokens": 1372,
+      "est_total": 1670,
+      "kv_cache_mb": 117.42,
+      "attn_activation_mb": 21.28,
+      "vision_activation_mb": 2.68,
+      "total_dynamic_memory_mb": 141.38
+    },
+    {
+      "name": "\ucd95\uc18c 112x196",
+      "vision_tokens": 588,
+      "est_total": 886,
+      "kv_cache_mb": 62.3,
+      "attn_activation_mb": 5.99,
+      "vision_activation_mb": 1.15,
+      "total_dynamic_memory_mb": 69.43
+    },
+    {
+      "name": "\ucd5c\uc18c min_pixels",
+      "vision_tokens": 4116,
+      "est_total": 4414,
+      "kv_cache_mb": 310.36,
+      "attn_activation_mb": 148.65,
+      "vision_activation_mb": 8.04,
+      "total_dynamic_memory_mb": 467.04
+    }
+  ],
+  "attention_benchmark": [
+    {
+      "seq_len": 256,
+      "avg_time_us": 325.24,
+      "std_time_us": 61.35,
+      "kv_memory_mb": 8.13,
+      "time_ratio_vs_base": 1.0,
+      "len_ratio_vs_base": 1.0,
+      "scaling_exponent": 1.0
+    },
+    {
+      "seq_len": 512,
+      "avg_time_us": 322.92,
+      "std_time_us": 27.19,
+      "kv_memory_mb": 0.0,
+      "time_ratio_vs_base": 0.99,
+      "len_ratio_vs_base": 2.0,
+      "scaling_exponent": -0.014
+    },
+    {
+      "seq_len": 1024,
+      "avg_time_us": 322.43,
+      "std_time_us": 23.19,
+      "kv_memory_mb": 0.0,
+      "time_ratio_vs_base": 0.99,
+      "len_ratio_vs_base": 4.0,
+      "scaling_exponent": -0.007
+    },
+    {
+      "seq_len": 2048,
+      "avg_time_us": 425.21,
+      "std_time_us": 43.09,
+      "kv_memory_mb": 0.0,
+      "time_ratio_vs_base": 1.31,
+      "len_ratio_vs_base": 8.0,
+      "scaling_exponent": 0.13
+    },
+    {
+      "seq_len": 4096,
+      "avg_time_us": 697.65,
+      "std_time_us": 14.45,
+      "kv_memory_mb": 0.0,
+      "time_ratio_vs_base": 2.15,
+      "len_ratio_vs_base": 16.0,
+      "scaling_exponent": 0.276
+    }
+  ],
+  "trade_off_analysis": [
+    {
+      "name": "\uc6d0\ubcf8 320x576 (baseline)",
+      "resolution": "320x576",
+      "pixel_ratio": 1.0,
+      "est_vision_tokens": 4116,
+      "est_total_tokens": 4414,
+      "memory_savings_pct": 0,
+      "speed_improvement_pct": 0,
+      "quality_impact": "\uc5c6\uc74c (baseline)",
+      "quality_score": 10,
+      "use_case": "\uc804\uccb4 \uc815\ubc00\ub3c4 \ud544\uc694 \uc2dc"
+    },
+    {
+      "name": "min_pixels=81920 (\ubc18\uc808)",
+      "resolution": "~226x406 equiv",
+      "pixel_ratio": 0.5,
+      "est_vision_tokens": 2058,
+      "est_total_tokens": 2356,
+      "memory_savings_pct": 25,
+      "speed_improvement_pct": 30,
+      "quality_impact": "\uacbd\ubbf8 (\uc6d0\uac70\ub9ac \ubb3c\uccb4 \ud574\uc0c1\ub3c4 \uc800\ud558)",
+      "quality_score": 8,
+      "use_case": "\uba54\ubaa8\ub9ac \uc81c\uc57d \uc2dc 1\ucc28 \uc120\ud0dd"
+    },
+    {
+      "name": "min_pixels=40960 (1/4)",
+      "resolution": "~160x288 equiv",
+      "pixel_ratio": 0.25,
+      "est_vision_tokens": 1029,
+      "est_total_tokens": 1327,
+      "memory_savings_pct": 45,
+      "speed_improvement_pct": 55,
+      "quality_impact": "\uc911\uac04 (\uc138\ubd80 \uc7a5\uba74 \uc778\uc2dd \uc800\ud558, \uadfc\uac70\ub9ac\ub294 \uac00\ub2a5)",
+      "quality_score": 6,
+      "use_case": "\uba54\ubaa8\ub9ac \uadf9\ud55c \uc81c\uc57d \uc2dc"
+    },
+    {
+      "name": "min_pixels=20480 (1/8)",
+      "resolution": "~112x196 equiv",
+      "pixel_ratio": 0.125,
+      "est_vision_tokens": 588,
+      "est_total_tokens": 886,
+      "memory_savings_pct": 55,
+      "speed_improvement_pct": 65,
+      "quality_impact": "\uc2ec\uac01 (\uc7a5\uba74 \uc774\ud574 \uc800\ud558, \ub300\ub7b5\uc801 \uc8fc\ud589\ub9cc \uac00\ub2a5)",
+      "quality_score": 3,
+      "use_case": "\ud504\ub85c\ud1a0\ud0c0\uc774\ud551/\ud14c\uc2a4\ud2b8\uc6a9"
+    }
+  ],
+  "vision_speed_benchmark": [
+    {
+      "resolution": "320x576",
+      "num_patches": 902,
+      "patches_per_frame": 902,
+      "total_patches_7frames": 6314,
+      "avg_time_ms": 1.375,
+      "std_time_ms": 0.008,
+      "gpu_memory_mb": 29.0
+    },
+    {
+      "resolution": "224x400",
+      "num_patches": 448,
+      "patches_per_frame": 448,
+      "total_patches_7frames": 3136,
+      "avg_time_ms": 0.85,
+      "std_time_ms": 0.01,
+      "gpu_memory_mb": 19.5
+    },
+    {
+      "resolution": "160x288",
+      "num_patches": 220,
+      "patches_per_frame": 220,
+      "total_patches_7frames": 1540,
+      "avg_time_ms": 0.603,
+      "std_time_ms": 0.024,
+      "gpu_memory_mb": 14.4
+    },
+    {
+      "resolution": "112x196",
+      "num_patches": 112,
+      "patches_per_frame": 112,
+      "total_patches_7frames": 784,
+      "avg_time_ms": 0.353,
+      "std_time_ms": 0.024,
+      "gpu_memory_mb": 11.7
+    }
+  ]
+}

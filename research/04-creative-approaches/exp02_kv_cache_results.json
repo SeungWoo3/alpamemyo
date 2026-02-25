@@ -1,0 +1,170 @@
+{
+  "kv_cache_config": {
+    "hidden_size": 4096,
+    "num_layers": 32,
+    "num_kv_heads": 32,
+    "head_dim": 128
+  },
+  "kv_per_token_per_layer_bytes": 16384,
+  "kv_per_token_total_bytes": 524288,
+  "kv_per_token_total_kb": 512.0,
+  "kv_per_token_total_mb": 0.5,
+  "kv_cache_by_token_count": {
+    "64": {
+      "tokens": 64,
+      "kv_cache_mb": 32.0,
+      "kv_cache_gb": 0.031
+    },
+    "128": {
+      "tokens": 128,
+      "kv_cache_mb": 64.0,
+      "kv_cache_gb": 0.062
+    },
+    "256": {
+      "tokens": 256,
+      "kv_cache_mb": 128.0,
+      "kv_cache_gb": 0.125
+    },
+    "512": {
+      "tokens": 512,
+      "kv_cache_mb": 256.0,
+      "kv_cache_gb": 0.25
+    },
+    "1024": {
+      "tokens": 1024,
+      "kv_cache_mb": 512.0,
+      "kv_cache_gb": 0.5
+    },
+    "2048": {
+      "tokens": 2048,
+      "kv_cache_mb": 1024.0,
+      "kv_cache_gb": 1.0
+    },
+    "4096": {
+      "tokens": 4096,
+      "kv_cache_mb": 2048.0,
+      "kv_cache_gb": 2.0
+    }
+  },
+  "alpamayo_token_estimate": {
+    "vision_tokens": 4116,
+    "traj_tokens": 48,
+    "text_tokens": 50,
+    "total_input_tokens": 4214,
+    "max_total_tokens": 4470,
+    "estimated_kv_cache_mb": 2235.0,
+    "estimated_kv_cache_gb": 2.183
+  },
+  "kv_cache_simulation": [
+    {
+      "tokens": 64,
+      "actual_kv_mb": 4.5,
+      "theory_kv_mb": 4.5,
+      "match_ratio": 1.0
+    },
+    {
+      "tokens": 128,
+      "actual_kv_mb": 8.88,
+      "theory_kv_mb": 9.0,
+      "match_ratio": 0.986
+    },
+    {
+      "tokens": 256,
+      "actual_kv_mb": 17.75,
+      "theory_kv_mb": 18.0,
+      "match_ratio": 0.986
+    },
+    {
+      "tokens": 512,
+      "actual_kv_mb": 35.5,
+      "theory_kv_mb": 36.0,
+      "match_ratio": 0.986
+    },
+    {
+      "tokens": 1024,
+      "actual_kv_mb": 71.0,
+      "theory_kv_mb": 72.0,
+      "match_ratio": 0.986
+    },
+    {
+      "tokens": 2048,
+      "actual_kv_mb": 142.0,
+      "theory_kv_mb": 144.0,
+      "match_ratio": 0.986
+    },
+    {
+      "tokens": 3072,
+      "actual_kv_mb": 214.0,
+      "theory_kv_mb": 216.0,
+      "match_ratio": 0.991
+    },
+    {
+      "tokens": 4096,
+      "actual_kv_mb": 282.0,
+      "theory_kv_mb": 288.0,
+      "match_ratio": 0.979
+    }
+  ],
+  "compression_methods": {
+    "int8_quantization": {
+      "description": "KV cache INT8 per-head-dim \uc591\uc790\ud654",
+      "original_size_bytes": 2097152,
+      "compressed_size_bytes": 1081344,
+      "compression_ratio": 1.9393939393939394,
+      "relative_error_k": 0.02914,
+      "relative_error_v": 0.029354,
+      "savings_percent": 48.4
+    },
+    "int4_quantization": {
+      "description": "KV cache INT4 group \uc591\uc790\ud654 (group_size=32)",
+      "original_size_bytes": 2097152,
+      "compressed_size_bytes": 655360,
+      "compression_ratio": 3.2,
+      "relative_error_k": 0.25817,
+      "relative_error_v": 0.258418,
+      "savings_percent": 68.8
+    },
+    "token_eviction_50pct": {
+      "description": "Token Eviction (\uc0c1\uc704 50% \ud1a0\ud070\ub9cc \uc720\uc9c0)",
+      "original_tokens": 1024,
+      "kept_tokens": 512,
+      "original_size_bytes": 2097152,
+      "compressed_size_bytes": 1048576,
+      "compression_ratio": 2.0,
+      "savings_percent": 50.0,
+      "note": "\ud488\uc9c8 \uc601\ud5a5\uc740 attention score \ubd84\ud3ec\uc5d0 \ub530\ub77c \ub2e4\ub984"
+    },
+    "token_eviction_25pct": {
+      "description": "Token Eviction (\uc0c1\uc704 25% \ud1a0\ud070\ub9cc \uc720\uc9c0)",
+      "original_tokens": 1024,
+      "kept_tokens": 256,
+      "original_size_bytes": 2097152,
+      "compressed_size_bytes": 524288,
+      "compression_ratio": 4.0,
+      "savings_percent": 75.0,
+      "note": "\ud488\uc9c8 \uc601\ud5a5\uc740 attention score \ubd84\ud3ec\uc5d0 \ub530\ub77c \ub2e4\ub984"
+    },
+    "cpu_offloading": {
+      "description": "KV cache CPU \uc624\ud504\ub85c\ub529 (pinned memory)",
+      "transfer_size_mb": 2.0,
+      "d2h_time_ms": 0.4,
+      "h2d_time_ms": 0.29,
+      "d2h_bandwidth_gbps": 4.88,
+      "h2d_bandwidth_gbps": 6.79,
+      "note": "1 layer \uae30\uc900. 36 layers = \uc57d 36x \uc2dc\uac04"
+    }
+  },
+  "pipeline_simulation": {
+    "config": {
+      "num_layers": 36,
+      "seq_len": 1024,
+      "per_layer_kv_mb": 2.0,
+      "total_kv_mb": 72.0
+    },
+    "sequential_transfer_ms": 9.86,
+    "async_pipeline_ms": 33.09,
+    "speedup": 0.3,
+    "effective_bandwidth_sequential_gbps": 7.13,
+    "effective_bandwidth_async_gbps": 2.12
+  }
+}

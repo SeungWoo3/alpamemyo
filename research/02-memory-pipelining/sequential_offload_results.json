@@ -1,0 +1,115 @@
+{
+  "experiment": "sequential_module_offloading",
+  "timestamp": "2026-02-25T17:56:16.238229",
+  "gpu": "NVIDIA GeForce RTX 3080 Ti",
+  "gpu_mem_gb": 12.9,
+  "phases": [
+    {
+      "phase": "Vision Encoder",
+      "status": "FORWARD_FAILED (input format issue, transfer metrics still valid): The size of tensor a (10780) must match the size of tensor b (14080) at non-singleton dimension 0",
+      "module_size_gb": 1.153,
+      "params_m": 576.4,
+      "cpu_to_gpu_time_s": 0.374,
+      "inference_time_s": 0.312,
+      "gpu_to_cpu_time_s": 0.855,
+      "total_time_s": 1.642,
+      "vram_before_gb": 0.0,
+      "vram_after_load_gb": 1.164,
+      "vram_peak_gb": 1.403,
+      "vram_after_offload_gb": 0.078,
+      "output_shape": "N/A",
+      "output_size_mb": 0.0
+    },
+    {
+      "phase": "VLM Language Model",
+      "status": "ANALYSIS_ONLY (exceeds VRAM)",
+      "module_size_gb": 17.596,
+      "num_layers": 36,
+      "avg_layer_size_gb": 0.3859,
+      "avg_cpu_to_gpu_s": 0.3435,
+      "avg_gpu_to_cpu_s": 0.2741,
+      "estimated_bandwidth_gbps": 1.12,
+      "estimated_total_transfer_s": 22.23,
+      "lm_head_size_gb": 1.275,
+      "embed_size_gb": 1.275,
+      "layer_details": [
+        {
+          "layer_idx": 0,
+          "size_gb": 0.3859,
+          "params_m": 192.9,
+          "cpu_to_gpu_s": 0.3511,
+          "gpu_to_cpu_s": 0.2744,
+          "vram_on_gpu_gb": 0.394
+        },
+        {
+          "layer_idx": 18,
+          "size_gb": 0.3859,
+          "params_m": 192.9,
+          "cpu_to_gpu_s": 0.3408,
+          "gpu_to_cpu_s": 0.274,
+          "vram_on_gpu_gb": 0.394
+        },
+        {
+          "layer_idx": 35,
+          "size_gb": 0.3859,
+          "params_m": 192.9,
+          "cpu_to_gpu_s": 0.3386,
+          "gpu_to_cpu_s": 0.274,
+          "vram_on_gpu_gb": 0.394
+        }
+      ],
+      "vram_peak_per_layer_gb": 0.394
+    },
+    {
+      "phase": "Expert (Trajectory Decoder)",
+      "status": "SUCCESS",
+      "module_size_gb": 4.561,
+      "expert_backbone_gb": 4.558,
+      "action_proj_gb": 0.0027,
+      "cpu_to_gpu_time_s": 0.89,
+      "inference_time_s": 0.338,
+      "gpu_to_cpu_time_s": 2.185,
+      "total_time_s": 3.545,
+      "vram_before_gb": 0.009,
+      "vram_after_load_gb": 4.57,
+      "vram_peak_gb": 4.571,
+      "vram_after_offload_gb": 0.009,
+      "output_shape": "torch.Size([1, 20, 2048])"
+    }
+  ],
+  "errors": [],
+  "ram_constraints": {
+    "total_ram_gb": 15.55,
+    "available_ram_gb": 13.37,
+    "swap_total_gb": 4.0,
+    "swap_free_gb": 1.15,
+    "model_size_bf16_gb": 22.16,
+    "can_fit_ram": false,
+    "can_fit_with_swap": false
+  },
+  "load_method": "cpu with offloading",
+  "load_time_s": 13.96,
+  "ram_before_load_gb": 2.25,
+  "ram_after_load_gb": 2.43,
+  "summary": {
+    "vision_encoder": {
+      "size_gb": 1.15,
+      "fits_gpu": true,
+      "sequential_offload_viable": true
+    },
+    "vlm_language_model": {
+      "size_gb": 16.44,
+      "fits_gpu": false,
+      "sequential_offload_viable": false,
+      "layer_wise_offload_needed": true,
+      "single_layer_fits_gpu": true,
+      "layer_size_gb": 0.386
+    },
+    "expert_decoder": {
+      "size_gb": 4.56,
+      "fits_gpu": true,
+      "sequential_offload_viable": true
+    },
+    "conclusion": "Module-level sequential offloading is PARTIALLY feasible. Vision Encoder (1.15GB) and Expert (4.56GB) can each be loaded to GPU individually. However, VLM Language Model (16.44GB BF16) EXCEEDS 12GB VRAM even alone, requiring LAYER-WISE offloading within the VLM. The critical dependency is that Expert needs VLM's KV Cache, which must remain on GPU during Expert execution. System RAM (15GB) cannot hold the full 22GB model simultaneously on CPU."
+  }
+}

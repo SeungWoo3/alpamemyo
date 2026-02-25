@@ -1,0 +1,433 @@
+{
+  "metadata": {
+    "timestamp": "2026-02-25T18:18:28.458386",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti",
+    "vram_gb": 12.88,
+    "pytorch": "2.8.0+cu128",
+    "cuda": "12.8"
+  },
+  "exp1_memory_stats": {
+    "small_alloc": {
+      "size_gb": 0.537,
+      "alloc_time_s": 0.1813,
+      "allocated_gb": 0.537,
+      "reserved_gb": 0.537,
+      "num_alloc_retries": 0,
+      "num_ooms": 0
+    },
+    "medium_alloc": {
+      "size_gb": 10.737,
+      "alloc_time_s": 0.3345,
+      "allocated_gb": 10.737,
+      "reserved_gb": 10.737,
+      "num_alloc_retries": 0,
+      "num_ooms": 0
+    },
+    "overcommit": [
+      {
+        "target_gb": 14,
+        "status": "success",
+        "alloc_time_s": 1.6032,
+        "allocated_gb": 14.001,
+        "num_alloc_retries": 0
+      },
+      {
+        "target_gb": 16,
+        "status": "success",
+        "alloc_time_s": 1.637,
+        "allocated_gb": 16.0,
+        "num_alloc_retries": 0
+      },
+      {
+        "target_gb": 20,
+        "status": "success",
+        "alloc_time_s": 2.776,
+        "allocated_gb": 20.001,
+        "num_alloc_retries": 0
+      }
+    ],
+    "sequential_pressure": [
+      {
+        "chunk_idx": 0,
+        "status": "success",
+        "alloc_time_s": 0.0306,
+        "total_allocated_gb": 1.0,
+        "total_reserved_gb": 1.0,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 1,
+        "status": "success",
+        "alloc_time_s": 0.0307,
+        "total_allocated_gb": 2.001,
+        "total_reserved_gb": 2.001,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 2,
+        "status": "success",
+        "alloc_time_s": 0.0303,
+        "total_allocated_gb": 3.001,
+        "total_reserved_gb": 3.001,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 3,
+        "status": "success",
+        "alloc_time_s": 0.0297,
+        "total_allocated_gb": 4.001,
+        "total_reserved_gb": 4.001,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 4,
+        "status": "success",
+        "alloc_time_s": 0.0295,
+        "total_allocated_gb": 5.002,
+        "total_reserved_gb": 5.002,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 5,
+        "status": "success",
+        "alloc_time_s": 0.0295,
+        "total_allocated_gb": 6.002,
+        "total_reserved_gb": 6.002,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 6,
+        "status": "success",
+        "alloc_time_s": 0.0297,
+        "total_allocated_gb": 7.002,
+        "total_reserved_gb": 7.002,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 7,
+        "status": "success",
+        "alloc_time_s": 0.0305,
+        "total_allocated_gb": 8.003,
+        "total_reserved_gb": 8.003,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 8,
+        "status": "success",
+        "alloc_time_s": 0.0312,
+        "total_allocated_gb": 9.003,
+        "total_reserved_gb": 9.003,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 9,
+        "status": "success",
+        "alloc_time_s": 0.0309,
+        "total_allocated_gb": 10.003,
+        "total_reserved_gb": 10.003,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 10,
+        "status": "success",
+        "alloc_time_s": 0.0293,
+        "total_allocated_gb": 11.004,
+        "total_reserved_gb": 11.004,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 11,
+        "status": "success",
+        "alloc_time_s": 0.2027,
+        "total_allocated_gb": 12.004,
+        "total_reserved_gb": 12.004,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 12,
+        "status": "success",
+        "alloc_time_s": 0.2608,
+        "total_allocated_gb": 13.004,
+        "total_reserved_gb": 13.004,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 13,
+        "status": "success",
+        "alloc_time_s": 0.2562,
+        "total_allocated_gb": 14.005,
+        "total_reserved_gb": 14.005,
+        "num_alloc_retries": 0
+      },
+      {
+        "chunk_idx": 14,
+        "status": "success",
+        "alloc_time_s": 0.2552,
+        "total_allocated_gb": 15.005,
+        "total_reserved_gb": 15.005,
+        "num_alloc_retries": 0
+      }
+    ]
+  },
+  "exp2_highfreq": {
+    "rapid_cycle": [
+      {
+        "alloc_ms": 50.02,
+        "compute_ms": 203.19,
+        "free_ms": 81.3
+      },
+      {
+        "alloc_ms": 8.09,
+        "compute_ms": 14.5,
+        "free_ms": 34.65
+      },
+      {
+        "alloc_ms": 7.81,
+        "compute_ms": 14.59,
+        "free_ms": 5.15
+      },
+      {
+        "alloc_ms": 7.77,
+        "compute_ms": 14.43,
+        "free_ms": 5.44
+      },
+      {
+        "alloc_ms": 7.84,
+        "compute_ms": 14.54,
+        "free_ms": 4.76
+      },
+      {
+        "alloc_ms": 7.99,
+        "compute_ms": 14.59,
+        "free_ms": 4.51
+      },
+      {
+        "alloc_ms": 7.77,
+        "compute_ms": 14.45,
+        "free_ms": 4.76
+      },
+      {
+        "alloc_ms": 7.81,
+        "compute_ms": 14.36,
+        "free_ms": 5.07
+      },
+      {
+        "alloc_ms": 7.83,
+        "compute_ms": 14.59,
+        "free_ms": 5.24
+      },
+      {
+        "alloc_ms": 7.69,
+        "compute_ms": 14.38,
+        "free_ms": 4.41
+      }
+    ],
+    "fill_vram": [
+      {
+        "idx": 0,
+        "alloc_time_ms": 15.7,
+        "total_gb": 0.537
+      },
+      {
+        "idx": 1,
+        "alloc_time_ms": 16.36,
+        "total_gb": 1.074
+      },
+      {
+        "idx": 2,
+        "alloc_time_ms": 16.41,
+        "total_gb": 1.611
+      },
+      {
+        "idx": 3,
+        "alloc_time_ms": 16.69,
+        "total_gb": 2.147
+      },
+      {
+        "idx": 4,
+        "alloc_time_ms": 16.64,
+        "total_gb": 2.684
+      },
+      {
+        "idx": 5,
+        "alloc_time_ms": 16.86,
+        "total_gb": 3.221
+      },
+      {
+        "idx": 6,
+        "alloc_time_ms": 16.28,
+        "total_gb": 3.758
+      },
+      {
+        "idx": 7,
+        "alloc_time_ms": 16.01,
+        "total_gb": 4.295
+      },
+      {
+        "idx": 8,
+        "alloc_time_ms": 15.95,
+        "total_gb": 4.832
+      },
+      {
+        "idx": 9,
+        "alloc_time_ms": 16.67,
+        "total_gb": 5.369
+      }
+    ],
+    "compute_under_pressure": {
+      "status": "success",
+      "time_ms": 116.7,
+      "vram_gb": 5.381
+    },
+    "monitor_csv": "/home/seungwoo/workspace/research/03-swap-optimization/unified_memory_timeline.csv",
+    "monitor_samples": 215
+  },
+  "exp3_unified_memory": {
+    "vram_info": {
+      "total_gb": 12.884,
+      "free_gb": 11.534
+    },
+    "managed_memory": [
+      {
+        "size_mb": 100,
+        "alloc_time_ms": 71.571,
+        "prefetch_to_gpu_ms": 0.104,
+        "prefetch_to_cpu_ms": 0.012,
+        "bw_h2d_gbs": 1011.045,
+        "bw_d2h_gbs": 8796.093,
+        "prefetch_gpu_status": 101,
+        "prefetch_cpu_status": 101
+      },
+      {
+        "size_mb": 500,
+        "alloc_time_ms": 320.624,
+        "prefetch_to_gpu_ms": 0.079,
+        "prefetch_to_cpu_ms": 0.012,
+        "bw_h2d_gbs": 6623.564,
+        "bw_d2h_gbs": 44878.026,
+        "prefetch_gpu_status": 101,
+        "prefetch_cpu_status": 101
+      },
+      {
+        "size_mb": 1000,
+        "alloc_time_ms": 535.671,
+        "prefetch_to_gpu_ms": 0.079,
+        "prefetch_to_cpu_ms": 0.01,
+        "bw_h2d_gbs": 13207.347,
+        "bw_d2h_gbs": 99955.603,
+        "prefetch_gpu_status": 101,
+        "prefetch_cpu_status": 101
+      },
+      {
+        "size_mb": 2000,
+        "alloc_time_ms": 1314.941,
+        "prefetch_to_gpu_ms": 0.083,
+        "prefetch_to_cpu_ms": 0.011,
+        "bw_h2d_gbs": 25276.129,
+        "bw_d2h_gbs": 183251.938,
+        "prefetch_gpu_status": 101,
+        "prefetch_cpu_status": 101
+      },
+      {
+        "size_mb": 4000,
+        "alloc_time_ms": 2129.892,
+        "prefetch_to_gpu_ms": 0.081,
+        "prefetch_to_cpu_ms": 0.011,
+        "bw_h2d_gbs": 51894.354,
+        "bw_d2h_gbs": 390937.468,
+        "prefetch_gpu_status": 101,
+        "prefetch_cpu_status": 101
+      }
+    ],
+    "access_patterns": [
+      {
+        "pattern": "sequential",
+        "description": "Sequential access (good locality)",
+        "size_mb": 512,
+        "prefetch_time_ms": 0.015,
+        "bandwidth_gbs": 36319.352
+      },
+      {
+        "pattern": "strided",
+        "description": "Strided access (poor locality)",
+        "size_mb": 512,
+        "prefetch_time_ms": 0.012,
+        "bandwidth_gbs": 45955.098
+      },
+      {
+        "pattern": "random",
+        "description": "Random access (worst locality)",
+        "size_mb": 512,
+        "prefetch_time_ms": 0.011,
+        "bandwidth_gbs": 48952.17
+      }
+    ],
+    "fault_vs_prefetch": [
+      {
+        "size_mb": 128,
+        "error": "CUDA error: invalid device ordinal\nCUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.\nFor debugging consider passing CUDA_LAUNCH_BL"
+      },
+      {
+        "size_mb": 256,
+        "direct_alloc_ms": 18.44,
+        "direct_compute_ms": 14.31,
+        "pinned_transfer_ms": 35.74,
+        "pinned_compute_ms": 1.39,
+        "pageable_transfer_ms": 39.09,
+        "pageable_compute_ms": 1.25
+      },
+      {
+        "size_mb": 512,
+        "direct_alloc_ms": 34.0,
+        "direct_compute_ms": 1.54,
+        "pinned_transfer_ms": 70.06,
+        "pinned_compute_ms": 2.07,
+        "pageable_transfer_ms": 79.26,
+        "pageable_compute_ms": 1.96
+      },
+      {
+        "size_mb": 1024,
+        "direct_alloc_ms": 69.34,
+        "direct_compute_ms": 2.87,
+        "pinned_transfer_ms": 137.07,
+        "pinned_compute_ms": 3.37,
+        "pageable_transfer_ms": 159.31,
+        "pageable_compute_ms": 3.33
+      },
+      {
+        "size_mb": 2048,
+        "direct_alloc_ms": 123.39,
+        "direct_compute_ms": 4.98,
+        "pinned_transfer_ms": 273.52,
+        "pinned_compute_ms": 5.67,
+        "pageable_transfer_ms": 322.18,
+        "pageable_compute_ms": 2.62
+      }
+    ]
+  },
+  "exp4_allocator": {
+    "fill_stats": {
+      "total_allocated_mb": 23040,
+      "vram_allocated_gb": 24.168,
+      "vram_reserved_gb": 24.18,
+      "peak_allocated_gb": 24.168,
+      "num_alloc_retries": 1,
+      "num_ooms": 1
+    },
+    "realloc": {
+      "status": "success",
+      "time_ms": 56.93,
+      "num_alloc_retries": 1
+    },
+    "final_stats": {
+      "num_alloc_retries": 1,
+      "num_ooms": 1,
+      "allocated_bytes.all.peak": 21483356160,
+      "reserved_bytes.all.peak": 21495808000,
+      "allocation.all.peak": 150,
+      "segment.all.peak": 150,
+      "oversize_allocations.peak": 0,
+      "oversize_segments.peak": 0
+    }
+  }
+}

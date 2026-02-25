@@ -1,0 +1,403 @@
+{
+  "metadata": {
+    "timestamp": "2026-02-25T18:26:02.705041",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti",
+    "pytorch": "2.8.0+cu128",
+    "cuda": "12.8"
+  },
+  "exp1_prefetch_gpu": {
+    "prefetch_cpu_supported": false,
+    "data": [
+      {
+        "size_mb": 64,
+        "cold_access_ms": 13.034,
+        "cold_bw_gbs": 5.149,
+        "warm_access_ms": 11.953,
+        "warm_bw_gbs": 5.614,
+        "prefetch_ms": 0.087,
+        "prefetch_bw_gbs": 774.428,
+        "post_prefetch_ms": 12.117,
+        "cold_warm_ratio": 1.09
+      },
+      {
+        "size_mb": 128,
+        "cold_access_ms": 24.16,
+        "cold_bw_gbs": 5.555,
+        "warm_access_ms": 23.677,
+        "warm_bw_gbs": 5.669,
+        "prefetch_ms": 0.035,
+        "prefetch_bw_gbs": 3855.059,
+        "post_prefetch_ms": 23.293,
+        "cold_warm_ratio": 1.02
+      },
+      {
+        "size_mb": 256,
+        "cold_access_ms": 46.382,
+        "cold_bw_gbs": 5.787,
+        "warm_access_ms": 46.177,
+        "warm_bw_gbs": 5.813,
+        "prefetch_ms": 0.031,
+        "prefetch_bw_gbs": 8701.875,
+        "post_prefetch_ms": 48.5,
+        "cold_warm_ratio": 1.0
+      },
+      {
+        "size_mb": 512,
+        "cold_access_ms": 93.598,
+        "cold_bw_gbs": 5.736,
+        "warm_access_ms": 93.685,
+        "warm_bw_gbs": 5.731,
+        "prefetch_ms": 0.064,
+        "prefetch_bw_gbs": 8413.849,
+        "post_prefetch_ms": 92.617,
+        "cold_warm_ratio": 1.0
+      },
+      {
+        "size_mb": 1024,
+        "cold_access_ms": 189.893,
+        "cold_bw_gbs": 5.654,
+        "warm_access_ms": 184.463,
+        "warm_bw_gbs": 5.821,
+        "prefetch_ms": 0.002,
+        "prefetch_bw_gbs": 568719.169,
+        "post_prefetch_ms": 185.697,
+        "cold_warm_ratio": 1.03
+      },
+      {
+        "size_mb": 2048,
+        "cold_access_ms": 369.667,
+        "cold_bw_gbs": 5.809,
+        "warm_access_ms": 372.051,
+        "warm_bw_gbs": 5.772,
+        "prefetch_ms": 0.002,
+        "prefetch_bw_gbs": 1048576.003,
+        "post_prefetch_ms": 377.679,
+        "cold_warm_ratio": 0.99
+      }
+    ]
+  },
+  "exp2_prefetch_overlap": [
+    {
+      "transfer_mb": 128,
+      "compute_only_ms": 0.742,
+      "transfer_only_ms": 16.903,
+      "sequential_ms": 23.781,
+      "overlapped_ms": 16.975,
+      "speedup": 1.401,
+      "savings_pct": 28.6
+    },
+    {
+      "transfer_mb": 256,
+      "compute_only_ms": 0.742,
+      "transfer_only_ms": 33.992,
+      "sequential_ms": 42.592,
+      "overlapped_ms": 34.615,
+      "speedup": 1.23,
+      "savings_pct": 18.7
+    },
+    {
+      "transfer_mb": 512,
+      "compute_only_ms": 0.742,
+      "transfer_only_ms": 67.833,
+      "sequential_ms": 76.75,
+      "overlapped_ms": 68.437,
+      "speedup": 1.121,
+      "savings_pct": 10.8
+    },
+    {
+      "transfer_mb": 1024,
+      "compute_only_ms": 0.742,
+      "transfer_only_ms": 116.714,
+      "sequential_ms": 145.225,
+      "overlapped_ms": 129.503,
+      "speedup": 1.121,
+      "savings_pct": 10.8
+    }
+  ],
+  "exp3_granularity": [
+    {
+      "chunk_mb": 0.5,
+      "n_chunks": 1024,
+      "h2d_ms": 102.49,
+      "h2d_bw_gbs": 5.238,
+      "efficiency_pct": 67.4
+    },
+    {
+      "chunk_mb": 1,
+      "n_chunks": 512,
+      "h2d_ms": 101.329,
+      "h2d_bw_gbs": 5.298,
+      "efficiency_pct": 68.2
+    },
+    {
+      "chunk_mb": 2,
+      "n_chunks": 256,
+      "h2d_ms": 44.139,
+      "h2d_bw_gbs": 12.163,
+      "efficiency_pct": 156.5
+    },
+    {
+      "chunk_mb": 4,
+      "n_chunks": 128,
+      "h2d_ms": 43.418,
+      "h2d_bw_gbs": 12.365,
+      "efficiency_pct": 159.1
+    },
+    {
+      "chunk_mb": 8,
+      "n_chunks": 64,
+      "h2d_ms": 43.247,
+      "h2d_bw_gbs": 12.414,
+      "efficiency_pct": 159.7
+    },
+    {
+      "chunk_mb": 16,
+      "n_chunks": 32,
+      "h2d_ms": 44.457,
+      "h2d_bw_gbs": 12.076,
+      "efficiency_pct": 155.4
+    },
+    {
+      "chunk_mb": 32,
+      "n_chunks": 16,
+      "h2d_ms": 45.213,
+      "h2d_bw_gbs": 11.874,
+      "efficiency_pct": 152.8
+    },
+    {
+      "chunk_mb": 64,
+      "n_chunks": 8,
+      "h2d_ms": 46.702,
+      "h2d_bw_gbs": 11.496,
+      "efficiency_pct": 147.9
+    },
+    {
+      "chunk_mb": 128,
+      "n_chunks": 4,
+      "h2d_ms": 50.518,
+      "h2d_bw_gbs": 10.627,
+      "efficiency_pct": 136.7
+    },
+    {
+      "chunk_mb": 256,
+      "n_chunks": 2,
+      "h2d_ms": 56.589,
+      "h2d_bw_gbs": 9.487,
+      "efficiency_pct": 122.1
+    },
+    {
+      "chunk_mb": 512,
+      "n_chunks": 1,
+      "h2d_ms": 69.071,
+      "h2d_bw_gbs": 7.773,
+      "efficiency_pct": 100.0
+    }
+  ],
+  "exp4_layer_prefetch": [
+    {
+      "name": "VLM Layer (single)",
+      "size_mb": 386,
+      "h2d_ms": 52.308,
+      "d2h_ms": 92.942,
+      "h2d_bw_gbs": 7.738,
+      "d2h_bw_gbs": 4.355,
+      "h2d_times": [
+        53.167,
+        52.652,
+        52.446,
+        51.766,
+        51.508
+      ],
+      "d2h_times": [
+        328.093,
+        34.215,
+        34.235,
+        34.09,
+        34.077
+      ]
+    },
+    {
+      "name": "VLM Embedding",
+      "size_mb": 280,
+      "h2d_ms": 38.016,
+      "d2h_ms": 25.211,
+      "h2d_bw_gbs": 7.723,
+      "d2h_bw_gbs": 11.646,
+      "h2d_times": [
+        38.824,
+        38.239,
+        38.226,
+        37.808,
+        36.983
+      ],
+      "d2h_times": [
+        25.169,
+        25.014,
+        25.178,
+        25.788,
+        24.904
+      ]
+    },
+    {
+      "name": "Vision Encoder",
+      "size_mb": 1150,
+      "h2d_ms": 138.831,
+      "d2h_ms": 339.492,
+      "h2d_bw_gbs": 8.686,
+      "d2h_bw_gbs": 3.552,
+      "h2d_times": [
+        154.074,
+        150.729,
+        133.164,
+        128.878,
+        127.311
+      ],
+      "d2h_times": [
+        1289.989,
+        102.025,
+        102.231,
+        101.784,
+        101.43
+      ]
+    },
+    {
+      "name": "VLM LM Head",
+      "size_mb": 1280,
+      "h2d_ms": 151.033,
+      "d2h_ms": 114.806,
+      "h2d_bw_gbs": 8.887,
+      "d2h_bw_gbs": 11.691,
+      "h2d_times": [
+        176.741,
+        148.394,
+        142.512,
+        143.271,
+        144.249
+      ],
+      "d2h_times": [
+        117.652,
+        113.658,
+        113.172,
+        114.692,
+        114.854
+      ]
+    },
+    {
+      "name": "Expert (1/4 scale)",
+      "size_mb": 1140,
+      "h2d_ms": 137.131,
+      "d2h_ms": 101.066,
+      "h2d_bw_gbs": 8.717,
+      "d2h_bw_gbs": 11.828,
+      "h2d_times": [
+        168.601,
+        131.964,
+        128.974,
+        128.113,
+        128.003
+      ],
+      "d2h_times": [
+        101.374,
+        100.445,
+        100.884,
+        102.016,
+        100.614
+      ]
+    }
+  ],
+  "exp5_unified_wsl2": {
+    "overcommit": [
+      {
+        "target_gb": 8,
+        "status": "success",
+        "alloc_time_s": 0.2233,
+        "access_time_ms": 57.725,
+        "allocated_gb": 8.009
+      },
+      {
+        "target_gb": 10,
+        "status": "success",
+        "alloc_time_s": 0.2764,
+        "access_time_ms": 11.467,
+        "allocated_gb": 10.009
+      },
+      {
+        "target_gb": 12,
+        "status": "success",
+        "alloc_time_s": 0.4,
+        "access_time_ms": 13.724,
+        "allocated_gb": 12.009
+      },
+      {
+        "target_gb": 14,
+        "status": "success",
+        "alloc_time_s": 1.3695,
+        "access_time_ms": 357.425,
+        "allocated_gb": 14.009
+      },
+      {
+        "target_gb": 16,
+        "status": "success",
+        "alloc_time_s": 1.8322,
+        "access_time_ms": 589.898,
+        "allocated_gb": 16.009
+      },
+      {
+        "target_gb": 18,
+        "status": "failed",
+        "alloc_time_s": 2.5769,
+        "error": "CUDA out of memory. Tried to allocate 16.77 GiB. GPU 0 has a total capacity of 12.00 GiB of which 10.73 GiB is free. Of the allocated memory 8.13 MiB is allocated by PyTorch, and 13.87 MiB is reserved"
+      },
+      {
+        "target_gb": 20,
+        "status": "failed",
+        "alloc_time_s": 2.5259,
+        "error": "CUDA out of memory. Tried to allocate 18.63 GiB. GPU 0 has a total capacity of 12.00 GiB of which 10.73 GiB is free. Of the allocated memory 8.13 MiB is allocated by PyTorch, and 13.87 MiB is reserved"
+      }
+    ],
+    "memory_pressure": [
+      {
+        "pressure_gb": 2,
+        "total_allocated_gb": 3.01,
+        "exceeds_vram": false,
+        "test_alloc_ms": 29.841,
+        "test_access_ms": 1.221
+      },
+      {
+        "pressure_gb": 4,
+        "total_allocated_gb": 5.009,
+        "exceeds_vram": false,
+        "test_alloc_ms": 29.986,
+        "test_access_ms": 1.227
+      },
+      {
+        "pressure_gb": 6,
+        "total_allocated_gb": 7.009,
+        "exceeds_vram": false,
+        "test_alloc_ms": 30.381,
+        "test_access_ms": 1.219
+      },
+      {
+        "pressure_gb": 8,
+        "total_allocated_gb": 9.009,
+        "exceeds_vram": false,
+        "test_alloc_ms": 28.912,
+        "test_access_ms": 1.223
+      },
+      {
+        "pressure_gb": 10,
+        "total_allocated_gb": 11.009,
+        "exceeds_vram": false,
+        "test_alloc_ms": 32.344,
+        "test_access_ms": 1.223
+      },
+      {
+        "pressure_gb": 11,
+        "total_allocated_gb": 12.009,
+        "exceeds_vram": true,
+        "test_alloc_ms": 54.941,
+        "test_access_ms": 17.396
+      }
+    ]
+  }
+}

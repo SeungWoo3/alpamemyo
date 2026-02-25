@@ -1,0 +1,239 @@
+{
+  "activation_analysis": {
+    "by_seq_len": [
+      {
+        "seq_len": 256,
+        "qkv_mem_mb": 6.0,
+        "attn_scores_mb": 4.0,
+        "attn_output_mb": 2.0,
+        "ffn_act_mb": 14.0,
+        "total_per_layer_mb": 26.0,
+        "with_checkpointing_mb": 2.0,
+        "savings_ratio": 0.923
+      },
+      {
+        "seq_len": 512,
+        "qkv_mem_mb": 12.0,
+        "attn_scores_mb": 16.0,
+        "attn_output_mb": 4.0,
+        "ffn_act_mb": 28.0,
+        "total_per_layer_mb": 60.0,
+        "with_checkpointing_mb": 4.0,
+        "savings_ratio": 0.933
+      },
+      {
+        "seq_len": 1024,
+        "qkv_mem_mb": 24.0,
+        "attn_scores_mb": 64.0,
+        "attn_output_mb": 8.0,
+        "ffn_act_mb": 56.0,
+        "total_per_layer_mb": 152.0,
+        "with_checkpointing_mb": 8.0,
+        "savings_ratio": 0.947
+      },
+      {
+        "seq_len": 2048,
+        "qkv_mem_mb": 48.0,
+        "attn_scores_mb": 256.0,
+        "attn_output_mb": 16.0,
+        "ffn_act_mb": 112.0,
+        "total_per_layer_mb": 432.0,
+        "with_checkpointing_mb": 16.0,
+        "savings_ratio": 0.963
+      },
+      {
+        "seq_len": 4096,
+        "qkv_mem_mb": 96.0,
+        "attn_scores_mb": 1024.0,
+        "attn_output_mb": 32.0,
+        "ffn_act_mb": 224.0,
+        "total_per_layer_mb": 1376.0,
+        "with_checkpointing_mb": 32.0,
+        "savings_ratio": 0.977
+      }
+    ],
+    "alpamayo_estimate": {
+      "seq_len": 4414,
+      "activation_per_layer_mb": 1534.02,
+      "attn_scores_mb": 1189.17,
+      "note": "Attention scores\uac00 O(n^2)\ub85c \uac00\uc7a5 \ud070 \ube44\uc911. SDPA \uc0ac\uc6a9 \uc2dc \uba54\ubaa8\ub9ac \ucd5c\uc801\ud654\ub428."
+    }
+  },
+  "checkpointing_benchmark": [
+    {
+      "seq_len": 256,
+      "num_layers": 4,
+      "normal_peak_mem_mb": 1568.5,
+      "normal_activation_mb": 30.1,
+      "normal_avg_time_ms": 7.448
+    },
+    {
+      "seq_len": 256,
+      "num_layers": 8,
+      "normal_peak_mem_mb": 3467.0,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 21.952
+    },
+    {
+      "seq_len": 256,
+      "num_layers": 16,
+      "normal_peak_mem_mb": 6539.9,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 29.357
+    },
+    {
+      "seq_len": 512,
+      "num_layers": 4,
+      "normal_peak_mem_mb": 1932.6,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 28.145
+    },
+    {
+      "seq_len": 512,
+      "num_layers": 8,
+      "normal_peak_mem_mb": 3469.0,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 31.941
+    },
+    {
+      "seq_len": 512,
+      "num_layers": 16,
+      "normal_peak_mem_mb": 6541.9,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 55.978
+    },
+    {
+      "seq_len": 1024,
+      "num_layers": 4,
+      "normal_peak_mem_mb": 1936.6,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 36.977
+    },
+    {
+      "seq_len": 1024,
+      "num_layers": 8,
+      "normal_peak_mem_mb": 3473.0,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 56.823
+    },
+    {
+      "seq_len": 1024,
+      "num_layers": 16,
+      "normal_peak_mem_mb": 6545.9,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 107.73
+    },
+    {
+      "seq_len": 2048,
+      "num_layers": 4,
+      "normal_peak_mem_mb": 1944.6,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 55.175
+    },
+    {
+      "seq_len": 2048,
+      "num_layers": 8,
+      "normal_peak_mem_mb": 3481.0,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 109.335
+    },
+    {
+      "seq_len": 2048,
+      "num_layers": 16,
+      "normal_peak_mem_mb": 6553.9,
+      "normal_activation_mb": 0.0,
+      "normal_avg_time_ms": 210.645
+    }
+  ],
+  "chunked_prefill": {
+    "measurements": [
+      {
+        "chunk_size": 128,
+        "num_chunks": 16,
+        "total_time_ms": 10.516,
+        "peak_memory_mb": 58.3,
+        "activation_memory_mb": 50.2,
+        "time_overhead_vs_full": 4.93,
+        "memory_savings_vs_full": 0.219
+      },
+      {
+        "chunk_size": 256,
+        "num_chunks": 8,
+        "total_time_ms": 2.917,
+        "peak_memory_mb": 44.2,
+        "activation_memory_mb": 36.0,
+        "time_overhead_vs_full": 1.37,
+        "memory_savings_vs_full": 0.44
+      },
+      {
+        "chunk_size": 512,
+        "num_chunks": 4,
+        "total_time_ms": 1.565,
+        "peak_memory_mb": 48.2,
+        "activation_memory_mb": 40.1,
+        "time_overhead_vs_full": 0.73,
+        "memory_savings_vs_full": 0.376
+      },
+      {
+        "chunk_size": 1024,
+        "num_chunks": 2,
+        "total_time_ms": 3.121,
+        "peak_memory_mb": 56.3,
+        "activation_memory_mb": 48.1,
+        "time_overhead_vs_full": 1.46,
+        "memory_savings_vs_full": 0.252
+      },
+      {
+        "chunk_size": 2048,
+        "num_chunks": 1,
+        "total_time_ms": 2.131,
+        "peak_memory_mb": 72.4,
+        "activation_memory_mb": 64.3,
+        "time_overhead_vs_full": 1.0,
+        "memory_savings_vs_full": 0.0
+      }
+    ]
+  },
+  "selective_recomputation": {
+    "description": "\ucd94\ub860 \uc2dc \ud65c\uc131\ud654 \uba54\ubaa8\ub9ac\ub97c \uc904\uc774\uae30 \uc704\ud55c \uc120\ud0dd\uc801 \uc7ac\uacc4\uc0b0/\uc800\uc7a5 \uc804\ub7b5",
+    "strategies": [
+      {
+        "name": "Attention Score \uc7ac\uacc4\uc0b0",
+        "description": "O(n^2) attention score\ub97c \uc800\uc7a5\ud558\uc9c0 \uc54a\uace0 \ud544\uc694 \uc2dc \uc7ac\uacc4\uc0b0. Flash Attention\uc774 \uc774\ubbf8 \uc774 \ud328\ud134\uc744 \uc0ac\uc6a9.",
+        "memory_savings": "seq_len^2 \u00d7 num_heads \u00d7 dtype_bytes / \ub808\uc774\uc5b4",
+        "speed_overhead": "\uc5c6\uc74c (Flash Attention/SDPA\uac00 \ub0b4\ubd80\uc801\uc73c\ub85c \ucc98\ub9ac)",
+        "applicable": true,
+        "already_implemented": true,
+        "note": "Qwen3-VL\uc740 \uc774\ubbf8 SDPA \uc0ac\uc6a9 (attn_implementation='sdpa')"
+      },
+      {
+        "name": "FFN \ud65c\uc131\ud654 \uc7ac\uacc4\uc0b0",
+        "description": "SwiGLU\uc758 \uc911\uac04 \ud65c\uc131\ud654 (gate_proj, up_proj \uacb0\uacfc)\ub97c \uc800\uc7a5\ud558\uc9c0 \uc54a\uace0 \uc7ac\uacc4\uc0b0. \ucd94\ub860\uc5d0\uc11c\ub294 backward\uac00 \uc5c6\uc73c\ubbc0\ub85c \uc758\ubbf8 \uc81c\ud55c\uc801.",
+        "memory_savings": "seq_len \u00d7 intermediate_size \u00d7 dtype_bytes / \ub808\uc774\uc5b4",
+        "speed_overhead": "~10-20% (\ud574\ub2f9 \ub808\uc774\uc5b4\ub9cc)",
+        "applicable": false,
+        "already_implemented": false,
+        "note": "\ucd94\ub860\uc5d0\uc11c\ub294 forward\ub9cc \uc2e4\ud589\ud558\ubbc0\ub85c \ud65c\uc131\ud654\uac00 \uc989\uc2dc \ud574\uc81c\ub428. \ud559\uc2b5\uc5d0\uc11c\ub9cc \uc720\ud6a8."
+      },
+      {
+        "name": "Chunked Prefill",
+        "description": "\uae34 prompt\ub97c \uccad\ud06c\ub85c \ub098\ub204\uc5b4 \uc21c\ucc28 \ucc98\ub9ac. \uac01 \uccad\ud06c\uc758 \ud65c\uc131\ud654\ub9cc \uba54\ubaa8\ub9ac\uc5d0 \uc720\uc9c0.",
+        "memory_savings": "chunk_ratio\ub9cc\ud07c \ud65c\uc131\ud654 \uba54\ubaa8\ub9ac \uac10\uc18c (\uc608: 1/4 chunk = 75% \uc808\uac10)",
+        "speed_overhead": "5-15% (\ucd94\uac00 \ucee4\ub110 \ud638\ucd9c + \uce90\uc2dc \ube44\ud6a8\uc728)",
+        "applicable": true,
+        "already_implemented": false,
+        "note": "vLLM, TGI \ub4f1 \uc11c\ube59 \ud504\ub808\uc784\uc6cc\ud06c\uc5d0\uc11c \uc774\ubbf8 \uc0ac\uc6a9. Alpamayo \uc801\uc6a9 \uac00\ub2a5."
+      },
+      {
+        "name": "Token Merging (ToMe)",
+        "description": "\uc720\uc0ac\ud55c \ud1a0\ud070\uc744 \ubcd1\ud569\ud558\uc5ec \uc2dc\ud000\uc2a4 \uae38\uc774 \uc790\uccb4\ub97c \uc904\uc784.",
+        "memory_savings": "merge_ratio\uc5d0 \ube44\ub840 (30% \ubcd1\ud569 = 30% \uc808\uac10)",
+        "speed_overhead": "\uc57d\uac04\uc758 \ubcd1\ud569 \uc5f0\uc0b0 \ube44\uc6a9",
+        "applicable": true,
+        "already_implemented": false,
+        "note": "Vision token\uc5d0 \uc801\uc6a9 \uac00\ub2a5. \uc774\ubbf8\uc9c0 \ud328\uce58 \uac04 \uc911\ubcf5 \uc815\ubcf4\uac00 \ub9ce\uc544 \ud6a8\uacfc\uc801."
+      }
+    ],
+    "recommendation": "Chunked Prefill + Token Merging \uc870\ud569\uc774 \ucd94\ub860\uc5d0\uc11c \uac00\uc7a5 \ud6a8\uacfc\uc801. \ud65c\uc131\ud654 \uccb4\ud06c\ud3ec\uc778\ud305 \uc790\uccb4\ub294 \ucd94\ub860\uc5d0\uc11c \uc758\ubbf8 \uc81c\ud55c\uc801."
+  }
+}

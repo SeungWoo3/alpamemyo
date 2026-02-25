@@ -1,0 +1,196 @@
+{
+  "diffusion_analysis": {
+    "step_scenarios": [
+      {
+        "num_steps": 1,
+        "expert_forward_passes": 1,
+        "speed_ratio_vs_baseline": 0.1,
+        "estimated_quality": "\ub9e4\uc6b0 \ub0ae\uc74c",
+        "quality_score": 2,
+        "diffusion_time_proportion": 0.1
+      },
+      {
+        "num_steps": 2,
+        "expert_forward_passes": 2,
+        "speed_ratio_vs_baseline": 0.2,
+        "estimated_quality": "\ub0ae\uc74c",
+        "quality_score": 5,
+        "diffusion_time_proportion": 0.2
+      },
+      {
+        "num_steps": 3,
+        "expert_forward_passes": 3,
+        "speed_ratio_vs_baseline": 0.3,
+        "estimated_quality": "\ub0ae\uc74c",
+        "quality_score": 5,
+        "diffusion_time_proportion": 0.3
+      },
+      {
+        "num_steps": 5,
+        "expert_forward_passes": 5,
+        "speed_ratio_vs_baseline": 0.5,
+        "estimated_quality": "\uc911\uac04",
+        "quality_score": 7,
+        "diffusion_time_proportion": 0.5
+      },
+      {
+        "num_steps": 8,
+        "expert_forward_passes": 8,
+        "speed_ratio_vs_baseline": 0.8,
+        "estimated_quality": "\ub192\uc74c",
+        "quality_score": 9,
+        "diffusion_time_proportion": 0.8
+      },
+      {
+        "num_steps": 10,
+        "expert_forward_passes": 10,
+        "speed_ratio_vs_baseline": 1.0,
+        "estimated_quality": "\uae30\ubcf8/\ucd5c\uc0c1",
+        "quality_score": 10,
+        "diffusion_time_proportion": 1.0
+      },
+      {
+        "num_steps": 15,
+        "expert_forward_passes": 15,
+        "speed_ratio_vs_baseline": 1.5,
+        "estimated_quality": "\uae30\ubcf8/\ucd5c\uc0c1",
+        "quality_score": 10,
+        "diffusion_time_proportion": 1.5
+      },
+      {
+        "num_steps": 20,
+        "expert_forward_passes": 20,
+        "speed_ratio_vs_baseline": 2.0,
+        "estimated_quality": "\uae30\ubcf8/\ucd5c\uc0c1",
+        "quality_score": 10,
+        "diffusion_time_proportion": 2.0
+      }
+    ]
+  },
+  "step_benchmark": [
+    {
+      "num_steps": 1,
+      "avg_time_ms": 3.45,
+      "std_time_ms": 0.402,
+      "gpu_memory_mb": 1544.6,
+      "time_per_step_ms": 3.45
+    },
+    {
+      "num_steps": 2,
+      "avg_time_ms": 6.646,
+      "std_time_ms": 1.813,
+      "gpu_memory_mb": 1544.6,
+      "time_per_step_ms": 3.323
+    },
+    {
+      "num_steps": 3,
+      "avg_time_ms": 8.355,
+      "std_time_ms": 0.811,
+      "gpu_memory_mb": 1544.6,
+      "time_per_step_ms": 2.785
+    },
+    {
+      "num_steps": 5,
+      "avg_time_ms": 13.982,
+      "std_time_ms": 2.485,
+      "gpu_memory_mb": 1544.6,
+      "time_per_step_ms": 2.796
+    },
+    {
+      "num_steps": 8,
+      "avg_time_ms": 20.781,
+      "std_time_ms": 0.311,
+      "gpu_memory_mb": 1544.6,
+      "time_per_step_ms": 2.598
+    },
+    {
+      "num_steps": 10,
+      "avg_time_ms": 25.9,
+      "std_time_ms": 0.226,
+      "gpu_memory_mb": 1544.6,
+      "time_per_step_ms": 2.59
+    }
+  ],
+  "expert_optimization": {
+    "strategies": [
+      {
+        "name": "Baseline Expert",
+        "description": "\ud604\uc7ac Expert \ubaa8\ub378 (text_config \uae30\ubc18 Transformer)",
+        "estimated_params": "~2.3B",
+        "fp16_gb": 4.56,
+        "int4_gb": 1.14,
+        "quality_impact": "\uc5c6\uc74c",
+        "implementation": "\ud604\uc7ac \uc0c1\ud0dc"
+      },
+      {
+        "name": "Expert INT8 \uc591\uc790\ud654",
+        "description": "Expert Transformer\ub97c INT8\ub85c \uc591\uc790\ud654",
+        "estimated_params": "~2.3B",
+        "fp16_gb": 4.56,
+        "int4_gb": 2.28,
+        "quality_impact": "\uacbd\ubbf8",
+        "implementation": "bitsandbytes INT8 \ub610\ub294 torch.ao.quantization"
+      },
+      {
+        "name": "Expert \ub808\uc774\uc5b4 \ucd95\uc18c",
+        "description": "Expert\uc758 \ub808\uc774\uc5b4 \uc218\ub97c 50% \uc904\uc784 (distillation)",
+        "estimated_params": "~1.15B",
+        "fp16_gb": 2.28,
+        "int4_gb": 0.57,
+        "quality_impact": "\uc911\uac04 (distillation\uc73c\ub85c \uc644\ud654 \uac00\ub2a5)",
+        "implementation": "Knowledge distillation + layer pruning"
+      },
+      {
+        "name": "Diffusion 5\u21923 \uc2a4\ud15d + Expert INT8",
+        "description": "\ub514\ud4e8\uc804 \uc2a4\ud15d \ucd95\uc18c + Expert \uc591\uc790\ud654 \uc870\ud569",
+        "estimated_params": "~2.3B",
+        "fp16_gb": 4.56,
+        "int4_gb": 2.28,
+        "quality_impact": "\uc911\uac04",
+        "implementation": "\uc2a4\ud15d \ucd95\uc18c + INT8 \uc591\uc790\ud654",
+        "speed_gain": "3x (\uc2a4\ud15d \ucd95\uc18c) + \uc57d\uac04 (\uc591\uc790\ud654)"
+      },
+      {
+        "name": "KV cache \uc7ac\uc0ac\uc6a9 \ucd5c\uc801\ud654",
+        "description": "VLM\uc758 KV cache\ub97c Expert\uc5d0\uc11c \ud6a8\uc728\uc801\uc73c\ub85c \uc7ac\uc0ac\uc6a9",
+        "estimated_params": "~2.3B",
+        "fp16_gb": 4.56,
+        "int4_gb": null,
+        "quality_impact": "\uc5c6\uc74c",
+        "implementation": "crop/reuse \ud328\ud134 \ucd5c\uc801\ud654 (\uc774\ubbf8 \uad6c\ud604\ub428, prompt_cache.crop())"
+      }
+    ],
+    "pipeline_time_breakdown": {
+      "total_4bit_seconds": 4.91,
+      "estimated_vision_pct": 2,
+      "estimated_vlm_generate_pct": 60,
+      "estimated_expert_diffusion_pct": 38,
+      "estimated_expert_per_step_ms": 186.58
+    }
+  },
+  "consistency_distillation": {
+    "description": "Flow Matching \u2192 Consistency Model \ubcc0\ud658",
+    "principle": "\ub2e4\uc218 \uc2a4\ud15d\uc758 ODE \uada4\uc801\uc744 1-2 \uc2a4\ud15d\uc73c\ub85c \ud559\uc2b5 (Consistency Models, Song et al. 2023)",
+    "applicability_to_alpamayo": {
+      "score": "\uc911\uac04-\ub192\uc74c",
+      "reason": "Alpamayo\uc758 10-step Euler \uc801\ubd84\uc744 1-2 step\uc73c\ub85c \uc904\uc77c \uc218 \uc788\uc74c. \ub2e8, \uada4\uc801 \uc608\uce21 \uc815\ud655\ub3c4 \uac80\uc99d \ud544\uc694."
+    },
+    "implementation_steps": [
+      "1. Teacher: \ud604\uc7ac 10-step Flow Matching \ubaa8\ub378",
+      "2. Student: \ub3d9\uc77c \uad6c\uc870\uc758 1-2 step \ubaa8\ub378",
+      "3. Teacher\uc758 ODE \uada4\uc801\uc744 \ub530\ub77c Student \ud559\uc2b5",
+      "4. Self-consistency loss \uc801\uc6a9"
+    ],
+    "expected_gain": {
+      "speed": "5-10x (\ub514\ud4e8\uc804 \ub2e8\uacc4\ub9cc)",
+      "memory": "\ub3d9\uc77c (\ubaa8\ub378 \ud06c\uae30\ub294 \uac19\uc74c)",
+      "quality": "\uc57d\uac04 \uc800\ud558 (1-step) ~ \uac70\uc758 \ub3d9\uc77c (2-step)"
+    },
+    "challenges": [
+      "\ud559\uc2b5 \ub370\uc774\ud130/\ud658\uacbd \ud544\uc694 (\ucee4\uc2a4\ud140 \ud559\uc2b5 \ud30c\uc774\ud504\ub77c\uc778)",
+      "Alpamayo\uc758 action space \ud2b9\uc131\uc5d0 \ub9de\ub294 loss \uc124\uacc4",
+      "VLM KV cache\uc640\uc758 \uc0c1\ud638\uc791\uc6a9 \uace0\ub824"
+    ],
+    "difficulty": "\uc5b4\ub824\uc6c0 (\ud559\uc2b5 \ud544\uc694)"
+  }
+}

@@ -1,0 +1,407 @@
+{
+  "metadata": {
+    "timestamp": "2026-02-25T18:45:15.622696",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti",
+    "pytorch": "2.8.0+cu128",
+    "cuda": "12.8"
+  },
+  "exp1_pageable_vs_pinned": [
+    {
+      "size_mb": 1,
+      "size_bytes": 1048576,
+      "pageable_h2d_ms": 0.484,
+      "pageable_h2d_std": 0.038,
+      "pageable_h2d_bw": 2.166,
+      "pageable_d2h_ms": 0.667,
+      "pageable_d2h_std": 0.369,
+      "pageable_d2h_bw": 1.572,
+      "pinned_h2d_ms": 0.399,
+      "pinned_h2d_std": 0.026,
+      "pinned_h2d_bw": 2.627,
+      "pinned_d2h_ms": 0.115,
+      "pinned_d2h_std": 0.034,
+      "pinned_d2h_bw": 9.103,
+      "h2d_pinned_speedup": 1.21,
+      "d2h_pinned_speedup": 5.79
+    },
+    {
+      "size_mb": 4,
+      "size_bytes": 4194304,
+      "pageable_h2d_ms": 1.346,
+      "pageable_h2d_std": 0.057,
+      "pageable_h2d_bw": 3.117,
+      "pageable_d2h_ms": 1.566,
+      "pageable_d2h_std": 1.262,
+      "pageable_d2h_bw": 2.679,
+      "pinned_h2d_ms": 1.25,
+      "pinned_h2d_std": 0.03,
+      "pinned_h2d_bw": 3.357,
+      "pinned_d2h_ms": 0.372,
+      "pinned_d2h_std": 0.006,
+      "pinned_d2h_bw": 11.269,
+      "h2d_pinned_speedup": 1.08,
+      "d2h_pinned_speedup": 4.21
+    },
+    {
+      "size_mb": 16,
+      "size_bytes": 16777216,
+      "pageable_h2d_ms": 2.619,
+      "pageable_h2d_std": 0.252,
+      "pageable_h2d_bw": 6.405,
+      "pageable_d2h_ms": 4.856,
+      "pageable_d2h_std": 4.637,
+      "pageable_d2h_bw": 3.455,
+      "pinned_h2d_ms": 2.127,
+      "pinned_h2d_std": 0.015,
+      "pinned_h2d_bw": 7.888,
+      "pinned_d2h_ms": 1.438,
+      "pinned_d2h_std": 0.005,
+      "pinned_d2h_bw": 11.666,
+      "h2d_pinned_speedup": 1.23,
+      "d2h_pinned_speedup": 3.38
+    },
+    {
+      "size_mb": 64,
+      "size_bytes": 67108864,
+      "pageable_h2d_ms": 9.25,
+      "pageable_h2d_std": 0.454,
+      "pageable_h2d_bw": 7.255,
+      "pageable_d2h_ms": 25.513,
+      "pageable_d2h_std": 2.126,
+      "pageable_d2h_bw": 2.63,
+      "pinned_h2d_ms": 7.86,
+      "pinned_h2d_std": 0.086,
+      "pinned_h2d_bw": 8.538,
+      "pinned_d2h_ms": 5.656,
+      "pinned_d2h_std": 0.017,
+      "pinned_d2h_bw": 11.865,
+      "h2d_pinned_speedup": 1.18,
+      "d2h_pinned_speedup": 4.51
+    },
+    {
+      "size_mb": 128,
+      "size_bytes": 134217728,
+      "pageable_h2d_ms": 18.04,
+      "pageable_h2d_std": 0.619,
+      "pageable_h2d_bw": 7.44,
+      "pageable_d2h_ms": 49.565,
+      "pageable_d2h_std": 0.293,
+      "pageable_d2h_bw": 2.708,
+      "pinned_h2d_ms": 17.187,
+      "pinned_h2d_std": 0.079,
+      "pinned_h2d_bw": 7.809,
+      "pinned_d2h_ms": 11.337,
+      "pinned_d2h_std": 0.054,
+      "pinned_d2h_bw": 11.839,
+      "h2d_pinned_speedup": 1.05,
+      "d2h_pinned_speedup": 4.37
+    },
+    {
+      "size_mb": 256,
+      "size_bytes": 268435456,
+      "pageable_h2d_ms": 36.931,
+      "pageable_h2d_std": 1.897,
+      "pageable_h2d_bw": 7.269,
+      "pageable_d2h_ms": 99.124,
+      "pageable_d2h_std": 0.342,
+      "pageable_d2h_bw": 2.708,
+      "pinned_h2d_ms": 31.373,
+      "pinned_h2d_std": 1.809,
+      "pinned_h2d_bw": 8.556,
+      "pinned_d2h_ms": 22.78,
+      "pinned_d2h_std": 0.326,
+      "pinned_d2h_bw": 11.784,
+      "h2d_pinned_speedup": 1.18,
+      "d2h_pinned_speedup": 4.35
+    },
+    {
+      "size_mb": 512,
+      "size_bytes": 536870912,
+      "pageable_h2d_ms": 68.585,
+      "pageable_h2d_std": 2.931,
+      "pageable_h2d_bw": 7.828,
+      "pageable_d2h_ms": 210.894,
+      "pageable_d2h_std": 36.391,
+      "pageable_d2h_bw": 2.546,
+      "pinned_h2d_ms": 59.264,
+      "pinned_h2d_std": 4.341,
+      "pinned_h2d_bw": 9.059,
+      "pinned_d2h_ms": 45.123,
+      "pinned_d2h_std": 0.094,
+      "pinned_d2h_bw": 11.898,
+      "h2d_pinned_speedup": 1.16,
+      "d2h_pinned_speedup": 4.67
+    }
+  ],
+  "exp2_large_vs_small": [
+    {
+      "chunk_mb": 0.5,
+      "n_chunks": 512,
+      "h2d_ms": 52.151,
+      "h2d_bw_gbs": 5.147,
+      "h2d_overhead_ratio": 1.475
+    },
+    {
+      "chunk_mb": 1,
+      "n_chunks": 256,
+      "h2d_ms": 47.622,
+      "h2d_bw_gbs": 5.637,
+      "h2d_overhead_ratio": 1.347
+    },
+    {
+      "chunk_mb": 2,
+      "n_chunks": 128,
+      "h2d_ms": 22.313,
+      "h2d_bw_gbs": 12.03,
+      "h2d_overhead_ratio": 0.631
+    },
+    {
+      "chunk_mb": 4,
+      "n_chunks": 64,
+      "h2d_ms": 21.729,
+      "h2d_bw_gbs": 12.354,
+      "h2d_overhead_ratio": 0.615
+    },
+    {
+      "chunk_mb": 8,
+      "n_chunks": 32,
+      "h2d_ms": 21.904,
+      "h2d_bw_gbs": 12.255,
+      "h2d_overhead_ratio": 0.62
+    },
+    {
+      "chunk_mb": 16,
+      "n_chunks": 16,
+      "h2d_ms": 22.829,
+      "h2d_bw_gbs": 11.758,
+      "h2d_overhead_ratio": 0.646
+    },
+    {
+      "chunk_mb": 32,
+      "n_chunks": 8,
+      "h2d_ms": 23.739,
+      "h2d_bw_gbs": 11.308,
+      "h2d_overhead_ratio": 0.672
+    },
+    {
+      "chunk_mb": 64,
+      "n_chunks": 4,
+      "h2d_ms": 25.472,
+      "h2d_bw_gbs": 10.539,
+      "h2d_overhead_ratio": 0.721
+    },
+    {
+      "chunk_mb": 128,
+      "n_chunks": 2,
+      "h2d_ms": 28.601,
+      "h2d_bw_gbs": 9.385,
+      "h2d_overhead_ratio": 0.809
+    },
+    {
+      "chunk_mb": 256,
+      "n_chunks": 1,
+      "h2d_ms": 35.346,
+      "h2d_bw_gbs": 7.594,
+      "h2d_overhead_ratio": 1.0
+    }
+  ],
+  "exp3_latency": [
+    {
+      "size_bytes": 4,
+      "size_label": "4",
+      "h2d_avg_ms": 0.408,
+      "h2d_min_ms": 0.3603,
+      "h2d_std_ms": 0.0812,
+      "bandwidth_gbs": 0.0
+    },
+    {
+      "size_bytes": 16,
+      "size_label": "16",
+      "h2d_avg_ms": 0.4724,
+      "h2d_min_ms": 0.3633,
+      "h2d_std_ms": 0.1165,
+      "bandwidth_gbs": 0.0
+    },
+    {
+      "size_bytes": 64,
+      "size_label": "64",
+      "h2d_avg_ms": 0.4536,
+      "h2d_min_ms": 0.3583,
+      "h2d_std_ms": 0.1414,
+      "bandwidth_gbs": 0.0
+    },
+    {
+      "size_bytes": 256,
+      "size_label": "256",
+      "h2d_avg_ms": 0.4633,
+      "h2d_min_ms": 0.3564,
+      "h2d_std_ms": 0.1533,
+      "bandwidth_gbs": 0.001
+    },
+    {
+      "size_bytes": 1024,
+      "size_label": "1KB",
+      "h2d_avg_ms": 0.4541,
+      "h2d_min_ms": 0.3525,
+      "h2d_std_ms": 0.1485,
+      "bandwidth_gbs": 0.002
+    },
+    {
+      "size_bytes": 4096,
+      "size_label": "4KB",
+      "h2d_avg_ms": 0.4564,
+      "h2d_min_ms": 0.3286,
+      "h2d_std_ms": 0.1538,
+      "bandwidth_gbs": 0.009
+    },
+    {
+      "size_bytes": 16384,
+      "size_label": "16KB",
+      "h2d_avg_ms": 0.4304,
+      "h2d_min_ms": 0.3025,
+      "h2d_std_ms": 0.1656,
+      "bandwidth_gbs": 0.038
+    },
+    {
+      "size_bytes": 65536,
+      "size_label": "64KB",
+      "h2d_avg_ms": 0.4226,
+      "h2d_min_ms": 0.3177,
+      "h2d_std_ms": 0.1242,
+      "bandwidth_gbs": 0.155
+    },
+    {
+      "size_bytes": 262144,
+      "size_label": "256KB",
+      "h2d_avg_ms": 0.4002,
+      "h2d_min_ms": 0.314,
+      "h2d_std_ms": 0.1176,
+      "bandwidth_gbs": 0.655
+    },
+    {
+      "size_bytes": 1048576,
+      "size_label": "1MB",
+      "h2d_avg_ms": 0.4841,
+      "h2d_min_ms": 0.4101,
+      "h2d_std_ms": 0.109,
+      "bandwidth_gbs": 2.166
+    },
+    {
+      "size_bytes": 4194304,
+      "size_label": "4MB",
+      "h2d_avg_ms": 1.6249,
+      "h2d_min_ms": 1.563,
+      "h2d_std_ms": 0.0849,
+      "bandwidth_gbs": 2.581
+    },
+    {
+      "size_bytes": 16777216,
+      "size_label": "16MB",
+      "h2d_avg_ms": 2.4785,
+      "h2d_min_ms": 2.417,
+      "h2d_std_ms": 0.0846,
+      "bandwidth_gbs": 6.769
+    },
+    {
+      "size_bytes": 67108864,
+      "size_label": "64MB",
+      "h2d_avg_ms": 9.0921,
+      "h2d_min_ms": 8.9788,
+      "h2d_std_ms": 0.1156,
+      "bandwidth_gbs": 7.381
+    }
+  ],
+  "exp4_bidirectional": {
+    "size_mb": 256,
+    "h2d_only_ms": 34.499,
+    "h2d_only_bw_gbs": 7.781,
+    "d2h_only_ms": 22.639,
+    "d2h_only_bw_gbs": 11.857,
+    "bidir_total_ms": 46.845,
+    "bidir_h2d_ms": 23.704,
+    "bidir_d2h_ms": 46.445,
+    "sequential_ms": 57.138,
+    "overlap_ratio": 1.22,
+    "h2d_contention_factor": 0.687,
+    "d2h_contention_factor": 2.052
+  },
+  "exp5_wsl2": {
+    "system_info": {
+      "kernel": "6.6.87.1-microsoft-standard-WSL2",
+      "memory_info": "total        used        free      shared  buff/cache   available\nMem:           15918        1624        9200        4426        5093        9624\nSwap:           4096        3545         550",
+      "gpu_pcie": "3, 3, 16, 16"
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 3080 Ti",
+      "total_memory_gb": 12.88,
+      "major": 8,
+      "minor": 6,
+      "multi_processor_count": 80
+    },
+    "pin_overhead": [
+      {
+        "size_mb": 1,
+        "alloc_ms": 12.45,
+        "pin_ms": 0.23
+      },
+      {
+        "size_mb": 10,
+        "alloc_ms": 125.44,
+        "pin_ms": 1.0
+      },
+      {
+        "size_mb": 100,
+        "alloc_ms": 1258.16,
+        "pin_ms": 8.54
+      },
+      {
+        "size_mb": 500,
+        "alloc_ms": 6451.64,
+        "pin_ms": 49.37
+      }
+    ],
+    "pcie_analysis": {
+      "theoretical_bw_gbs": 15.75,
+      "pinned_h2d_bw_gbs": 9.338,
+      "pinned_d2h_bw_gbs": 11.803,
+      "h2d_efficiency_pct": 59.3,
+      "d2h_efficiency_pct": 74.9,
+      "h2d_wsl2_overhead_pct": 40.7,
+      "d2h_wsl2_overhead_pct": 25.1
+    },
+    "pageable_d2h_anomaly": [
+      {
+        "size_mb": 64,
+        "pageable_d2h_ms": 26.058,
+        "pageable_d2h_bw": 2.575,
+        "pinned_d2h_ms": 5.676,
+        "pinned_d2h_bw": 11.824,
+        "pageable_slowdown": 4.59
+      },
+      {
+        "size_mb": 128,
+        "pageable_d2h_ms": 55.576,
+        "pageable_d2h_bw": 2.415,
+        "pinned_d2h_ms": 11.327,
+        "pinned_d2h_bw": 11.849,
+        "pageable_slowdown": 4.91
+      },
+      {
+        "size_mb": 256,
+        "pageable_d2h_ms": 101.047,
+        "pageable_d2h_bw": 2.657,
+        "pinned_d2h_ms": 22.561,
+        "pinned_d2h_bw": 11.898,
+        "pageable_slowdown": 4.48
+      },
+      {
+        "size_mb": 512,
+        "pageable_d2h_ms": 222.715,
+        "pageable_d2h_bw": 2.411,
+        "pinned_d2h_ms": 45.14,
+        "pinned_d2h_bw": 11.894,
+        "pageable_slowdown": 4.93
+      }
+    ]
+  }
+}

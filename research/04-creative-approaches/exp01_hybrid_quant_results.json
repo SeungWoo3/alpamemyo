@@ -1,0 +1,240 @@
+{
+  "model_info": {
+    "hidden_size": 4096,
+    "intermediate_size": 22016,
+    "num_attention_heads": 32,
+    "num_key_value_heads": 32,
+    "num_hidden_layers": 32,
+    "head_dim": 128,
+    "vocab_size": 151936
+  },
+  "layer_analysis": {
+    "attention_params_per_layer": 67108864,
+    "ffn_params_per_layer": 270532608,
+    "norm_params_per_layer": 8192,
+    "total_params_per_layer": 337649664,
+    "num_layers": 32
+  },
+  "scenarios": {
+    "baseline_fp16": {
+      "description": "\uc804\uccb4 FP16 (baseline)",
+      "attn_precision": "fp16",
+      "ffn_precision": "fp16",
+      "total_bytes": 21609578496,
+      "total_gb": 20.12548828125
+    },
+    "full_int4": {
+      "description": "\uc804\uccb4 INT4",
+      "attn_precision": "int4",
+      "ffn_precision": "int4",
+      "total_bytes": 5402394624.0,
+      "total_gb": 5.0313720703125
+    },
+    "attn_int4_ffn_int8": {
+      "description": "Attention INT4, FFN INT8",
+      "attn_precision": "int4",
+      "ffn_precision": "int8",
+      "total_bytes": 9731309568.0,
+      "total_gb": 9.06298828125
+    },
+    "attn_int8_ffn_int4": {
+      "description": "Attention INT8, FFN INT4",
+      "attn_precision": "int8",
+      "ffn_precision": "int4",
+      "total_bytes": 6476529664.0,
+      "total_gb": 6.03173828125
+    },
+    "full_int8": {
+      "description": "\uc804\uccb4 INT8",
+      "attn_precision": "int8",
+      "ffn_precision": "int8",
+      "total_bytes": 10804789248,
+      "total_gb": 10.062744140625
+    },
+    "first6_int4_rest_fp16": {
+      "description": "\uccab 6\uac1c \ub808\uc774\uc5b4 INT4, \ub098\uba38\uc9c0 FP16",
+      "int4_layers": 6,
+      "fp16_layers": 26,
+      "total_bytes": 18570731520.0,
+      "total_gb": 17.29534149169922
+    },
+    "first12_int4_rest_fp16": {
+      "description": "\uccab 12\uac1c \ub808\uc774\uc5b4 INT4, \ub098\uba38\uc9c0 FP16",
+      "int4_layers": 12,
+      "fp16_layers": 20,
+      "total_bytes": 15531884544.0,
+      "total_gb": 14.465194702148438
+    },
+    "first18_int4_rest_fp16": {
+      "description": "\uccab 18\uac1c \ub808\uc774\uc5b4 INT4, \ub098\uba38\uc9c0 FP16",
+      "int4_layers": 18,
+      "fp16_layers": 14,
+      "total_bytes": 12493037568.0,
+      "total_gb": 11.635047912597656
+    },
+    "first24_int4_rest_fp16": {
+      "description": "\uccab 24\uac1c \ub808\uc774\uc5b4 INT4, \ub098\uba38\uc9c0 FP16",
+      "int4_layers": 24,
+      "fp16_layers": 8,
+      "total_bytes": 9454190592.0,
+      "total_gb": 8.804901123046875
+    }
+  },
+  "quantization_error": {
+    "attention_weight": {
+      "shape": [
+        4096,
+        4096
+      ],
+      "original_mean_abs": 0.7978515625,
+      "int8_abs_error": 0.007495880126953125,
+      "int8_relative_error": 0.009395081089351285,
+      "int4_abs_error": 0.1002197265625,
+      "int4_relative_error": 0.12561199510403917,
+      "int4_vs_int8_error_ratio": 13.36997455470738
+    },
+    "ffn_weight": {
+      "shape": [
+        4096,
+        14336
+      ],
+      "original_mean_abs": 0.7978515625,
+      "int8_abs_error": 0.00807952880859375,
+      "int8_relative_error": 0.010126606487148103,
+      "int4_abs_error": 0.1002197265625,
+      "int4_relative_error": 0.12561199510403917,
+      "int4_vs_int8_error_ratio": 12.404154863078375
+    }
+  },
+  "matmul_benchmark": {
+    "attention_proj": {
+      "shape": "256x4096 @ 4096x4096",
+      "fp16_time_ms": 0.1749016100075096,
+      "int8_dequant_time_ms": 0.3621747600118397,
+      "speedup_or_slowdown": 0.48292048292319417,
+      "weight_mem_fp16_mb": 32.0,
+      "weight_mem_int8_mb": 16.0078125,
+      "memory_saving_ratio": 0.500244140625
+    },
+    "ffn_gate": {
+      "shape": "256x4096 @ 4096x14336",
+      "fp16_time_ms": 0.48104555000463733,
+      "int8_dequant_time_ms": 1.1610713600020972,
+      "speedup_or_slowdown": 0.41431178700658716,
+      "weight_mem_fp16_mb": 112.0,
+      "weight_mem_int8_mb": 56.02734375,
+      "memory_saving_ratio": 0.500244140625
+    },
+    "ffn_down": {
+      "shape": "256x14336 @ 14336x4096",
+      "fp16_time_ms": 0.5477842199979932,
+      "int8_dequant_time_ms": 1.153465410006902,
+      "speedup_or_slowdown": 0.4749030315479642,
+      "weight_mem_fp16_mb": 112.0,
+      "weight_mem_int8_mb": 56.0078125,
+      "memory_saving_ratio": 0.5000697544642857
+    }
+  },
+  "offloading_strategies": [
+    {
+      "name": "VLM-INT4 + Others-FP16-Offload",
+      "vision": {
+        "precision": "fp16",
+        "location": "cpu_to_gpu",
+        "gb": 1.15
+      },
+      "vlm": {
+        "precision": "int4",
+        "location": "gpu",
+        "gb": 3.7925
+      },
+      "expert": {
+        "precision": "fp16",
+        "location": "cpu_to_gpu",
+        "gb": 4.56
+      },
+      "peak_vram_gb": 5.56,
+      "description": "VLM\ub9cc INT4, \ub098\uba38\uc9c0\ub294 FP16\uc73c\ub85c \ud544\uc694 \uc2dc GPU \uc804\uc1a1"
+    },
+    {
+      "name": "VLM-INT4 + Expert-INT8",
+      "vision": {
+        "precision": "fp16",
+        "location": "cpu_to_gpu",
+        "gb": 1.15
+      },
+      "vlm": {
+        "precision": "int4",
+        "location": "gpu",
+        "gb": 3.7925
+      },
+      "expert": {
+        "precision": "int8",
+        "location": "gpu",
+        "gb": 2.28
+      },
+      "peak_vram_gb": 7.0725,
+      "description": "VLM INT4 + Expert INT8, Vision \uc628\ub514\ub9e8\ub4dc"
+    },
+    {
+      "name": "All-INT4",
+      "vision": {
+        "precision": "int4",
+        "location": "gpu",
+        "gb": 0.2875
+      },
+      "vlm": {
+        "precision": "int4",
+        "location": "gpu",
+        "gb": 3.7925
+      },
+      "expert": {
+        "precision": "int4",
+        "location": "gpu",
+        "gb": 1.14
+      },
+      "peak_vram_gb": 6.22,
+      "description": "\uc804\uccb4 INT4 \uc591\uc790\ud654"
+    },
+    {
+      "name": "VLM-Hybrid(Attn-INT4+FFN-INT8)",
+      "vision": {
+        "precision": "fp16",
+        "location": "cpu_to_gpu",
+        "gb": 1.15
+      },
+      "vlm": {
+        "precision": "hybrid",
+        "location": "gpu",
+        "gb": 6.674799999999999
+      },
+      "expert": {
+        "precision": "fp16",
+        "location": "cpu_to_gpu",
+        "gb": 4.56
+      },
+      "peak_vram_gb": 8.1748,
+      "description": "VLM Attention INT4 + FFN INT8, \ub098\uba38\uc9c0 FP16 \uc624\ud504\ub85c\ub4dc"
+    },
+    {
+      "name": "All-on-GPU(VLM-INT4)",
+      "vision": {
+        "precision": "fp16",
+        "location": "gpu",
+        "gb": 1.15
+      },
+      "vlm": {
+        "precision": "int4",
+        "location": "gpu",
+        "gb": 3.7925
+      },
+      "expert": {
+        "precision": "fp16",
+        "location": "gpu",
+        "gb": 4.56
+      },
+      "peak_vram_gb": 11.0025,
+      "description": "VLM INT4\ub85c \uc804\uccb4 GPU \ud0d1\uc7ac \uc2dc\ub3c4"
+    }
+  ]
+}

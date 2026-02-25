@@ -1,0 +1,258 @@
+{
+  "metadata": {
+    "timestamp": "2026-02-25T18:38:19.738594",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti",
+    "pytorch": "2.8.0+cu128",
+    "cuda": "12.8"
+  },
+  "exp1_bandwidth": [
+    {
+      "size_mb": 64,
+      "pinned_h2d_ms": 7.876,
+      "pinned_h2d_bw_gbs": 8.521,
+      "pinned_d2h_ms": 5.684,
+      "pinned_d2h_bw_gbs": 11.806,
+      "pageable_h2d_ms": 9.81,
+      "pageable_h2d_bw_gbs": 6.841,
+      "pageable_d2h_ms": 28.549,
+      "pageable_d2h_bw_gbs": 2.351,
+      "h2d_pinned_speedup": 1.25,
+      "d2h_pinned_speedup": 5.02
+    },
+    {
+      "size_mb": 128,
+      "pinned_h2d_ms": 15.188,
+      "pinned_h2d_bw_gbs": 8.837,
+      "pinned_d2h_ms": 11.275,
+      "pinned_d2h_bw_gbs": 11.904,
+      "pageable_h2d_ms": 18.892,
+      "pageable_h2d_bw_gbs": 7.105,
+      "pageable_d2h_ms": 52.698,
+      "pageable_d2h_bw_gbs": 2.547,
+      "h2d_pinned_speedup": 1.24,
+      "d2h_pinned_speedup": 4.67
+    },
+    {
+      "size_mb": 256,
+      "pinned_h2d_ms": 32.912,
+      "pinned_h2d_bw_gbs": 8.156,
+      "pinned_d2h_ms": 22.51,
+      "pinned_d2h_bw_gbs": 11.925,
+      "pageable_h2d_ms": 37.406,
+      "pageable_h2d_bw_gbs": 7.176,
+      "pageable_d2h_ms": 98.619,
+      "pageable_d2h_bw_gbs": 2.722,
+      "h2d_pinned_speedup": 1.14,
+      "d2h_pinned_speedup": 4.38
+    },
+    {
+      "size_mb": 512,
+      "pinned_h2d_ms": 64.299,
+      "pinned_h2d_bw_gbs": 8.35,
+      "pinned_d2h_ms": 45.325,
+      "pinned_d2h_bw_gbs": 11.845,
+      "pageable_h2d_ms": 74.584,
+      "pageable_h2d_bw_gbs": 7.198,
+      "pageable_d2h_ms": 209.833,
+      "pageable_d2h_bw_gbs": 2.559,
+      "h2d_pinned_speedup": 1.16,
+      "d2h_pinned_speedup": 4.63
+    },
+    {
+      "size_mb": 1024,
+      "pinned_h2d_ms": 114.016,
+      "pinned_h2d_bw_gbs": 9.417,
+      "pinned_d2h_ms": 90.113,
+      "pinned_d2h_bw_gbs": 11.916,
+      "pageable_h2d_ms": 134.941,
+      "pageable_h2d_bw_gbs": 7.957,
+      "pageable_d2h_ms": 407.991,
+      "pageable_d2h_bw_gbs": 2.632,
+      "h2d_pinned_speedup": 1.18,
+      "d2h_pinned_speedup": 4.53
+    }
+  ],
+  "exp2_async_vs_blocking": [
+    {
+      "n_layers": 5,
+      "layer_size_mb": 200,
+      "blocking_ms": 200.446,
+      "nonblocking_ms": 147.281,
+      "pipeline_ms": 129.367,
+      "pipeline_speedup_vs_blocking": 1.549
+    }
+  ],
+  "exp3_layerwise": {
+    "sync": {
+      "total_ms": 1777.446,
+      "layer_times": [
+        {
+          "layer": 0,
+          "h2d_ms": 286.14,
+          "compute_ms": 120.95,
+          "cleanup_ms": 0.8
+        },
+        {
+          "layer": 1,
+          "h2d_ms": 303.12,
+          "compute_ms": 3.45,
+          "cleanup_ms": 1.02
+        },
+        {
+          "layer": 2,
+          "h2d_ms": 303.27,
+          "compute_ms": 4.13,
+          "cleanup_ms": 0.71
+        },
+        {
+          "layer": 3,
+          "h2d_ms": 249.68,
+          "compute_ms": 2.98,
+          "cleanup_ms": 0.83
+        },
+        {
+          "layer": 4,
+          "h2d_ms": 251.26,
+          "compute_ms": 2.99,
+          "cleanup_ms": 1.19
+        },
+        {
+          "layer": 5,
+          "h2d_ms": 256.28,
+          "compute_ms": 3.67,
+          "cleanup_ms": 0.76
+        }
+      ]
+    },
+    "async_pipeline": {
+      "total_ms": 1545.313,
+      "layer_times": [
+        {
+          "layer": 0,
+          "wait_ms": 0.03,
+          "compute_ms": 293.88,
+          "cleanup_ms": 1.04
+        },
+        {
+          "layer": 1,
+          "wait_ms": 0.04,
+          "compute_ms": 288.37,
+          "cleanup_ms": 0.94
+        },
+        {
+          "layer": 2,
+          "wait_ms": 0.09,
+          "compute_ms": 235.89,
+          "cleanup_ms": 0.71
+        },
+        {
+          "layer": 3,
+          "wait_ms": 0.07,
+          "compute_ms": 244.46,
+          "cleanup_ms": 1.62
+        },
+        {
+          "layer": 4,
+          "wait_ms": 0.04,
+          "compute_ms": 233.08,
+          "cleanup_ms": 0.75
+        },
+        {
+          "layer": 5,
+          "wait_ms": 0.04,
+          "compute_ms": 2.91,
+          "cleanup_ms": 0.25
+        }
+      ]
+    },
+    "comparison": {
+      "n_layers": 6,
+      "layer_size_mb": 102.0,
+      "sync_total_ms": 1777.446,
+      "async_total_ms": 1545.313,
+      "speedup": 1.15
+    }
+  },
+  "exp4_size_scaling": [
+    {
+      "size_mb": 1,
+      "h2d_ms": 0.415,
+      "h2d_std_ms": 0.021,
+      "h2d_bw_gbs": 2.528,
+      "d2h_ms": 0.095,
+      "d2h_std_ms": 0.001,
+      "d2h_bw_gbs": 11.004,
+      "asymmetry_ratio": 0.23
+    },
+    {
+      "size_mb": 4,
+      "h2d_ms": 0.366,
+      "h2d_std_ms": 0.038,
+      "h2d_bw_gbs": 11.467,
+      "d2h_ms": 0.362,
+      "d2h_std_ms": 0.001,
+      "d2h_bw_gbs": 11.598,
+      "asymmetry_ratio": 0.99
+    },
+    {
+      "size_mb": 16,
+      "h2d_ms": 2.515,
+      "h2d_std_ms": 0.052,
+      "h2d_bw_gbs": 6.67,
+      "d2h_ms": 1.421,
+      "d2h_std_ms": 0.014,
+      "d2h_bw_gbs": 11.803,
+      "asymmetry_ratio": 0.57
+    },
+    {
+      "size_mb": 64,
+      "h2d_ms": 9.168,
+      "h2d_std_ms": 0.135,
+      "h2d_bw_gbs": 7.32,
+      "d2h_ms": 5.694,
+      "d2h_std_ms": 0.027,
+      "d2h_bw_gbs": 11.786,
+      "asymmetry_ratio": 0.62
+    },
+    {
+      "size_mb": 128,
+      "h2d_ms": 17.609,
+      "h2d_std_ms": 0.201,
+      "h2d_bw_gbs": 7.622,
+      "d2h_ms": 11.505,
+      "d2h_std_ms": 0.059,
+      "d2h_bw_gbs": 11.666,
+      "asymmetry_ratio": 0.65
+    },
+    {
+      "size_mb": 256,
+      "h2d_ms": 34.287,
+      "h2d_std_ms": 0.835,
+      "h2d_bw_gbs": 7.829,
+      "d2h_ms": 22.608,
+      "d2h_std_ms": 0.05,
+      "d2h_bw_gbs": 11.873,
+      "asymmetry_ratio": 0.66
+    },
+    {
+      "size_mb": 512,
+      "h2d_ms": 66.497,
+      "h2d_std_ms": 4.111,
+      "h2d_bw_gbs": 8.074,
+      "d2h_ms": 45.067,
+      "d2h_std_ms": 0.055,
+      "d2h_bw_gbs": 11.913,
+      "asymmetry_ratio": 0.68
+    },
+    {
+      "size_mb": 1024,
+      "h2d_ms": 122.986,
+      "h2d_std_ms": 11.267,
+      "h2d_bw_gbs": 8.731,
+      "d2h_ms": 89.929,
+      "d2h_std_ms": 0.028,
+      "d2h_bw_gbs": 11.94,
+      "asymmetry_ratio": 0.73
+    }
+  ]
+}

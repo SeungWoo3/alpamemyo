@@ -1,0 +1,34 @@
+{
+  "experiment": "device_map_auto",
+  "model": "nvidia/Alpamayo-R1-10B",
+  "dtype": "bfloat16",
+  "gpu": "RTX 3080 Ti (12GB)",
+  "load_time_seconds": 22.7,
+  "inference_time_seconds": 0.11,
+  "total_time_seconds": 22.81,
+  "vram_after_load_gb": 8.99,
+  "peak_vram_pytorch_gb": 9.06,
+  "peak_vram_monitor_gb": 9.06,
+  "inference_success": false,
+  "gpu_params_billion": 4.49,
+  "cpu_params_billion": 6.58,
+  "device_placement_summary": {
+    "vlm": {
+      "gpu_params_M": 4494.2,
+      "cpu_params_M": 4303.7
+    },
+    "expert": {
+      "gpu_params_M": 0.0,
+      "cpu_params_M": 2279.2
+    },
+    "action_in_proj": {
+      "gpu_params_M": 0.0,
+      "cpu_params_M": 1.3
+    },
+    "action_out_proj": {
+      "gpu_params_M": 0.0,
+      "cpu_params_M": 0.0
+    }
+  },
+  "n_vram_samples": 1
+}

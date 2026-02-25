@@ -1,0 +1,614 @@
+{
+  "model_config": {
+    "num_hidden_layers": 32,
+    "hidden_size": 4096,
+    "intermediate_size": 22016,
+    "num_attention_heads": 32,
+    "num_key_value_heads": 32
+  },
+  "layer_structure": {
+    "params_per_module": {
+      "self_attn.q_proj": 16777216,
+      "self_attn.k_proj": 16777216,
+      "self_attn.v_proj": 16777216,
+      "self_attn.o_proj": 16777216,
+      "mlp.gate_proj": 90177536,
+      "mlp.up_proj": 90177536,
+      "mlp.down_proj": 90177536,
+      "input_layernorm": 4096,
+      "post_attention_layernorm": 4096
+    },
+    "total_per_layer": 337649664,
+    "attn_params": 67108864,
+    "ffn_params": 270532608,
+    "norm_params": 8192,
+    "attn_ratio": 0.19875294174733726,
+    "ffn_ratio": 0.8012227964189533,
+    "bytes_per_layer_fp16": 675299328,
+    "bytes_per_layer_int4": 168824832.0,
+    "mb_per_layer_fp16": 644.015625,
+    "mb_per_layer_int4": 161.00390625
+  },
+  "weight_analysis": {
+    "layer_metrics": [
+      {
+        "layer_idx": 0,
+        "angular_distance": 0.080846,
+        "relative_importance": 1.6169
+      },
+      {
+        "layer_idx": 1,
+        "angular_distance": 0.05738,
+        "relative_importance": 1.1476
+      },
+      {
+        "layer_idx": 2,
+        "angular_distance": 0.089577,
+        "relative_importance": 1.7915
+      },
+      {
+        "layer_idx": 3,
+        "angular_distance": 0.112539,
+        "relative_importance": 2.2508
+      },
+      {
+        "layer_idx": 4,
+        "angular_distance": 0.028902,
+        "relative_importance": 0.578
+      },
+      {
+        "layer_idx": 5,
+        "angular_distance": 0.02679,
+        "relative_importance": 0.5358
+      },
+      {
+        "layer_idx": 6,
+        "angular_distance": 0.024529,
+        "relative_importance": 0.4906
+      },
+      {
+        "layer_idx": 7,
+        "angular_distance": 0.025014,
+        "relative_importance": 0.5003
+      },
+      {
+        "layer_idx": 8,
+        "angular_distance": 0.037395,
+        "relative_importance": 0.7479
+      },
+      {
+        "layer_idx": 9,
+        "angular_distance": 0.023277,
+        "relative_importance": 0.4655
+      },
+      {
+        "layer_idx": 10,
+        "angular_distance": 0.018873,
+        "relative_importance": 0.3775
+      },
+      {
+        "layer_idx": 11,
+        "angular_distance": 0.0133,
+        "relative_importance": 0.266
+      },
+      {
+        "layer_idx": 12,
+        "angular_distance": 0.023761,
+        "relative_importance": 0.4752
+      },
+      {
+        "layer_idx": 13,
+        "angular_distance": 0.013295,
+        "relative_importance": 0.2659
+      },
+      {
+        "layer_idx": 14,
+        "angular_distance": 0.01716,
+        "relative_importance": 0.3432
+      },
+      {
+        "layer_idx": 15,
+        "angular_distance": 0.020496,
+        "relative_importance": 0.4099
+      },
+      {
+        "layer_idx": 16,
+        "angular_distance": 0.017623,
+        "relative_importance": 0.3525
+      },
+      {
+        "layer_idx": 17,
+        "angular_distance": 0.016496,
+        "relative_importance": 0.3299
+      },
+      {
+        "layer_idx": 18,
+        "angular_distance": 0.013017,
+        "relative_importance": 0.2603
+      },
+      {
+        "layer_idx": 19,
+        "angular_distance": 0.017988,
+        "relative_importance": 0.3598
+      },
+      {
+        "layer_idx": 20,
+        "angular_distance": 0.015593,
+        "relative_importance": 0.3119
+      },
+      {
+        "layer_idx": 21,
+        "angular_distance": 0.022706,
+        "relative_importance": 0.4541
+      },
+      {
+        "layer_idx": 22,
+        "angular_distance": 0.024841,
+        "relative_importance": 0.4968
+      },
+      {
+        "layer_idx": 23,
+        "angular_distance": 0.032439,
+        "relative_importance": 0.6488
+      },
+      {
+        "layer_idx": 24,
+        "angular_distance": 0.015968,
+        "relative_importance": 0.3194
+      },
+      {
+        "layer_idx": 25,
+        "angular_distance": 0.022789,
+        "relative_importance": 0.4558
+      },
+      {
+        "layer_idx": 26,
+        "angular_distance": 0.022493,
+        "relative_importance": 0.4499
+      },
+      {
+        "layer_idx": 27,
+        "angular_distance": 0.032541,
+        "relative_importance": 0.6508
+      },
+      {
+        "layer_idx": 28,
+        "angular_distance": 0.01819,
+        "relative_importance": 0.3638
+      },
+      {
+        "layer_idx": 29,
+        "angular_distance": 0.028356,
+        "relative_importance": 0.5671
+      },
+      {
+        "layer_idx": 30,
+        "angular_distance": 0.049641,
+        "relative_importance": 0.9928
+      },
+      {
+        "layer_idx": 31,
+        "angular_distance": 0.055189,
+        "relative_importance": 1.1038
+      },
+      {
+        "layer_idx": 32,
+        "angular_distance": 0.076195,
+        "relative_importance": 1.5239
+      },
+      {
+        "layer_idx": 33,
+        "angular_distance": 0.045642,
+        "relative_importance": 0.9128
+      },
+      {
+        "layer_idx": 34,
+        "angular_distance": 0.089009,
+        "relative_importance": 1.7802
+      },
+      {
+        "layer_idx": 35,
+        "angular_distance": 0.054037,
+        "relative_importance": 1.0807
+      }
+    ],
+    "least_important_layers": [
+      18,
+      13,
+      11,
+      20,
+      24,
+      17,
+      14,
+      16,
+      19,
+      28,
+      10,
+      15,
+      26,
+      21,
+      25,
+      9,
+      12,
+      6
+    ],
+    "most_important_layers": [
+      33,
+      30,
+      35,
+      31,
+      1,
+      32,
+      0,
+      34,
+      2,
+      3
+    ]
+  },
+  "pruning_scenarios": [
+    {
+      "name": "Remove 6 layers (keep 30)",
+      "layers_removed": 6,
+      "layers_kept": 30,
+      "removal_ratio": 0.17,
+      "vlm_fp16_gb": 12.64,
+      "vlm_int4_gb": 3.16,
+      "total_model_fp16_gb": 18.35,
+      "total_model_int4_gb": 4.59,
+      "total_vlm_int4_rest_fp16_gb": 8.87,
+      "estimated_speed_factor": 0.83,
+      "fits_12gb_fp16": false,
+      "fits_12gb_int4": true,
+      "fits_12gb_vlm_int4_only": true,
+      "expected_quality_impact": "\uacbd\ubbf8"
+    },
+    {
+      "name": "Remove 9 layers (keep 27)",
+      "layers_removed": 9,
+      "layers_kept": 27,
+      "removal_ratio": 0.25,
+      "vlm_fp16_gb": 11.38,
+      "vlm_int4_gb": 2.84,
+      "total_model_fp16_gb": 17.09,
+      "total_model_int4_gb": 4.27,
+      "total_vlm_int4_rest_fp16_gb": 8.55,
+      "estimated_speed_factor": 0.75,
+      "fits_12gb_fp16": false,
+      "fits_12gb_int4": true,
+      "fits_12gb_vlm_int4_only": true,
+      "expected_quality_impact": "\uc911\uac04"
+    },
+    {
+      "name": "Remove 12 layers (keep 24)",
+      "layers_removed": 12,
+      "layers_kept": 24,
+      "removal_ratio": 0.33,
+      "vlm_fp16_gb": 10.11,
+      "vlm_int4_gb": 2.53,
+      "total_model_fp16_gb": 15.82,
+      "total_model_int4_gb": 3.96,
+      "total_vlm_int4_rest_fp16_gb": 8.24,
+      "estimated_speed_factor": 0.67,
+      "fits_12gb_fp16": false,
+      "fits_12gb_int4": true,
+      "fits_12gb_vlm_int4_only": true,
+      "expected_quality_impact": "\uc911\uac04"
+    },
+    {
+      "name": "Remove 18 layers (keep 18)",
+      "layers_removed": 18,
+      "layers_kept": 18,
+      "removal_ratio": 0.5,
+      "vlm_fp16_gb": 7.58,
+      "vlm_int4_gb": 1.9,
+      "total_model_fp16_gb": 13.29,
+      "total_model_int4_gb": 3.32,
+      "total_vlm_int4_rest_fp16_gb": 7.61,
+      "estimated_speed_factor": 0.5,
+      "fits_12gb_fp16": false,
+      "fits_12gb_int4": true,
+      "fits_12gb_vlm_int4_only": true,
+      "expected_quality_impact": "\uc2ec\uac01"
+    },
+    {
+      "name": "Remove 24 layers (keep 12)",
+      "layers_removed": 24,
+      "layers_kept": 12,
+      "removal_ratio": 0.67,
+      "vlm_fp16_gb": 5.06,
+      "vlm_int4_gb": 1.26,
+      "total_model_fp16_gb": 10.77,
+      "total_model_int4_gb": 2.69,
+      "total_vlm_int4_rest_fp16_gb": 6.97,
+      "estimated_speed_factor": 0.33,
+      "fits_12gb_fp16": true,
+      "fits_12gb_int4": true,
+      "fits_12gb_vlm_int4_only": true,
+      "expected_quality_impact": "\ub9e4\uc6b0 \uc2ec\uac01"
+    }
+  ],
+  "layer_skip_benchmark": {
+    "36_layers_full": {
+      "num_layers": 36,
+      "avg_time_ms": 7.061,
+      "std_time_ms": 0.163,
+      "model_memory_mb": 2601.1
+    },
+    "30_layers": {
+      "num_layers": 30,
+      "avg_time_ms": 10.964,
+      "std_time_ms": 2.097,
+      "model_memory_mb": 2169.1
+    },
+    "24_layers": {
+      "num_layers": 24,
+      "avg_time_ms": 8.164,
+      "std_time_ms": 5.974,
+      "model_memory_mb": 1737.1
+    },
+    "18_layers": {
+      "num_layers": 18,
+      "avg_time_ms": 9.158,
+      "std_time_ms": 5.088,
+      "model_memory_mb": 1305.1
+    },
+    "12_layers": {
+      "num_layers": 12,
+      "avg_time_ms": 7.908,
+      "std_time_ms": 1.292,
+      "model_memory_mb": 873.1
+    }
+  },
+  "block_importance": {
+    "similarities": [
+      {
+        "layer_idx": 0,
+        "cosine_similarity": 0.855469,
+        "angular_distance": 0.144531,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 1,
+        "cosine_similarity": 0.851562,
+        "angular_distance": 0.148438,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 2,
+        "cosine_similarity": 0.851562,
+        "angular_distance": 0.148438,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 3,
+        "cosine_similarity": 0.851562,
+        "angular_distance": 0.148438,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 4,
+        "cosine_similarity": 0.851562,
+        "angular_distance": 0.148438,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 5,
+        "cosine_similarity": 0.847656,
+        "angular_distance": 0.152344,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 6,
+        "cosine_similarity": 0.847656,
+        "angular_distance": 0.152344,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 7,
+        "cosine_similarity": 0.847656,
+        "angular_distance": 0.152344,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 8,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 9,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 10,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 11,
+        "cosine_similarity": 0.839844,
+        "angular_distance": 0.160156,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 12,
+        "cosine_similarity": 0.839844,
+        "angular_distance": 0.160156,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 13,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 14,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 15,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 16,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 17,
+        "cosine_similarity": 0.839844,
+        "angular_distance": 0.160156,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 18,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 19,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 20,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 21,
+        "cosine_similarity": 0.839844,
+        "angular_distance": 0.160156,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 22,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 23,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 24,
+        "cosine_similarity": 0.851562,
+        "angular_distance": 0.148438,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 25,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 26,
+        "cosine_similarity": 0.839844,
+        "angular_distance": 0.160156,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 27,
+        "cosine_similarity": 0.839844,
+        "angular_distance": 0.160156,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 28,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 29,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 30,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 31,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 32,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 33,
+        "cosine_similarity": 0.847656,
+        "angular_distance": 0.152344,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 34,
+        "cosine_similarity": 0.84375,
+        "angular_distance": 0.15625,
+        "removable_candidate": false
+      },
+      {
+        "layer_idx": 35,
+        "cosine_similarity": 0.839844,
+        "angular_distance": 0.160156,
+        "removable_candidate": false
+      }
+    ],
+    "removal_priority": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      24,
+      5,
+      6,
+      7,
+      33,
+      8,
+      9,
+      10,
+      13,
+      14,
+      15,
+      16,
+      18
+    ],
+    "keep_priority": [
+      31,
+      32,
+      34,
+      11,
+      12,
+      17,
+      21,
+      26,
+      27,
+      35
+    ]
+  }
+}

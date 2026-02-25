@@ -1,0 +1,288 @@
+{
+  "experiment": "cuda_stream_async_transfer",
+  "timestamp": "2026-02-25T17:56:44.572075",
+  "gpu": "NVIDIA GeForce RTX 3080 Ti",
+  "gpu_mem_gb": 12.9,
+  "cuda_version": "12.8",
+  "pytorch_version": "2.8.0+cu128",
+  "experiments": [
+    {
+      "method": "synchronous_sequential",
+      "total_time_s": 1.0593,
+      "total_transfer_s": 0.1693,
+      "total_compute_s": 0.2252,
+      "total_offload_s": 0.3349,
+      "overall_peak_vram_gb": 0.4647,
+      "per_module": [
+        {
+          "module": "VisionEncoder",
+          "transfer_time_s": 0.0351,
+          "compute_time_s": 0.1407,
+          "offload_time_s": 0.0494,
+          "phase_time_s": 0.2632,
+          "vram_after_load_gb": 0.115,
+          "vram_peak_gb": 0.1235
+        },
+        {
+          "module": "VLM_Layer_0",
+          "transfer_time_s": 0.0157,
+          "compute_time_s": 0.022,
+          "offload_time_s": 0.0207,
+          "phase_time_s": 0.0955,
+          "vram_after_load_gb": 0.0472,
+          "vram_peak_gb": 0.0472
+        },
+        {
+          "module": "VLM_Layer_1",
+          "transfer_time_s": 0.0164,
+          "compute_time_s": 0.0247,
+          "offload_time_s": 0.0171,
+          "phase_time_s": 0.0956,
+          "vram_after_load_gb": 0.0472,
+          "vram_peak_gb": 0.0472
+        },
+        {
+          "module": "VLM_Layer_2",
+          "transfer_time_s": 0.016,
+          "compute_time_s": 0.0245,
+          "offload_time_s": 0.0169,
+          "phase_time_s": 0.0967,
+          "vram_after_load_gb": 0.0472,
+          "vram_peak_gb": 0.0472
+        },
+        {
+          "module": "Expert",
+          "transfer_time_s": 0.0861,
+          "compute_time_s": 0.0133,
+          "offload_time_s": 0.2308,
+          "phase_time_s": 0.3685,
+          "vram_after_load_gb": 0.4647,
+          "vram_peak_gb": 0.4647
+        }
+      ]
+    },
+    {
+      "method": "async_prefetch",
+      "total_time_s": 0.6933,
+      "total_compute_s": 0.0975,
+      "overall_peak_vram_gb": 0.512,
+      "per_module": [
+        {
+          "module": "VisionEncoder",
+          "compute_time_s": 0.0147,
+          "offload_time_s": 0.0398,
+          "phase_time_s": 0.1054,
+          "vram_after_load_gb": 0.1235,
+          "vram_peak_gb": 0.1708,
+          "prefetch_overlap": true,
+          "transfer_time_s": 0.0319
+        },
+        {
+          "module": "VLM_Layer_0",
+          "compute_time_s": 0.0224,
+          "offload_time_s": 0.0098,
+          "phase_time_s": 0.0825,
+          "vram_after_load_gb": 0.0558,
+          "vram_peak_gb": 0.1708,
+          "prefetch_overlap": true,
+          "transfer_time_s": 0.0
+        },
+        {
+          "module": "VLM_Layer_1",
+          "compute_time_s": 0.0228,
+          "offload_time_s": 0.0096,
+          "phase_time_s": 0.0845,
+          "vram_after_load_gb": 0.0558,
+          "vram_peak_gb": 0.1708,
+          "prefetch_overlap": true,
+          "transfer_time_s": 0.0
+        },
+        {
+          "module": "VLM_Layer_2",
+          "compute_time_s": 0.0225,
+          "offload_time_s": 0.0096,
+          "phase_time_s": 0.1626,
+          "vram_after_load_gb": 0.0558,
+          "vram_peak_gb": 0.512,
+          "prefetch_overlap": true,
+          "transfer_time_s": 0.0
+        },
+        {
+          "module": "Expert",
+          "compute_time_s": 0.0151,
+          "offload_time_s": 0.1716,
+          "phase_time_s": 0.2262,
+          "vram_after_load_gb": 0.4732,
+          "vram_peak_gb": 0.512,
+          "prefetch_overlap": false,
+          "transfer_time_s": 0.0
+        }
+      ],
+      "note": "VRAM peak is higher due to overlapping current + next module"
+    },
+    {
+      "method": "pcie_bandwidth",
+      "measurements": [
+        {
+          "size_mb": 1,
+          "h2d_time_s": 0.00083,
+          "d2h_time_s": 0.00027,
+          "h2d_bandwidth_gbps": 1.21,
+          "d2h_bandwidth_gbps": 3.75
+        },
+        {
+          "size_mb": 10,
+          "h2d_time_s": 0.00104,
+          "d2h_time_s": 0.00152,
+          "h2d_bandwidth_gbps": 9.63,
+          "d2h_bandwidth_gbps": 6.6
+        },
+        {
+          "size_mb": 50,
+          "h2d_time_s": 0.00639,
+          "d2h_time_s": 0.01998,
+          "h2d_bandwidth_gbps": 7.82,
+          "d2h_bandwidth_gbps": 2.5
+        },
+        {
+          "size_mb": 100,
+          "h2d_time_s": 0.01193,
+          "d2h_time_s": 0.03752,
+          "h2d_bandwidth_gbps": 8.38,
+          "d2h_bandwidth_gbps": 2.67
+        },
+        {
+          "size_mb": 200,
+          "h2d_time_s": 0.02596,
+          "d2h_time_s": 0.07677,
+          "h2d_bandwidth_gbps": 7.7,
+          "d2h_bandwidth_gbps": 2.61
+        },
+        {
+          "size_mb": 500,
+          "h2d_time_s": 0.06631,
+          "d2h_time_s": 0.18986,
+          "h2d_bandwidth_gbps": 7.54,
+          "d2h_bandwidth_gbps": 2.63
+        },
+        {
+          "size_mb": 1000,
+          "h2d_time_s": 0.12745,
+          "d2h_time_s": 0.3661,
+          "h2d_bandwidth_gbps": 7.85,
+          "d2h_bandwidth_gbps": 2.73
+        },
+        {
+          "size_mb": 2000,
+          "h2d_time_s": 0.25731,
+          "d2h_time_s": 0.8482,
+          "h2d_bandwidth_gbps": 7.77,
+          "d2h_bandwidth_gbps": 2.36
+        },
+        {
+          "size_mb": 4000,
+          "h2d_time_s": 0.50579,
+          "d2h_time_s": 1.81628,
+          "h2d_bandwidth_gbps": 7.91,
+          "d2h_bandwidth_gbps": 2.2
+        }
+      ],
+      "sustained_h2d_gbps": 7.77,
+      "sustained_d2h_gbps": 2.48
+    },
+    {
+      "method": "transfer_estimates",
+      "per_module_estimates": [
+        {
+          "module": "Vision Encoder",
+          "size_gb": 1.15,
+          "h2d_time_s": 0.148,
+          "d2h_time_s": 0.4637,
+          "total_transfer_overhead_s": 0.6117,
+          "compute_time_est_s": 0.5,
+          "can_hide_transfer": true
+        },
+        {
+          "module": "VLM Single Layer",
+          "size_gb": 0.386,
+          "h2d_time_s": 0.0497,
+          "d2h_time_s": 0.1556,
+          "total_transfer_overhead_s": 0.2053,
+          "compute_time_est_s": 0.05,
+          "can_hide_transfer": true
+        },
+        {
+          "module": "VLM Embedding+Norm",
+          "size_gb": 0.28,
+          "h2d_time_s": 0.036,
+          "d2h_time_s": 0.1129,
+          "total_transfer_overhead_s": 0.1489,
+          "compute_time_est_s": 0.01,
+          "can_hide_transfer": false
+        },
+        {
+          "module": "VLM LM Head",
+          "size_gb": 1.28,
+          "h2d_time_s": 0.1647,
+          "d2h_time_s": 0.5161,
+          "total_transfer_overhead_s": 0.6809,
+          "compute_time_est_s": 0.02,
+          "can_hide_transfer": false
+        },
+        {
+          "module": "VLM Full (IMPOSSIBLE)",
+          "size_gb": 16.44,
+          "h2d_time_s": 2.1158,
+          "d2h_time_s": 6.629,
+          "total_transfer_overhead_s": 8.7449,
+          "compute_time_est_s": 5.0,
+          "can_hide_transfer": true
+        },
+        {
+          "module": "Expert Full",
+          "size_gb": 4.56,
+          "h2d_time_s": 0.5869,
+          "d2h_time_s": 1.8387,
+          "total_transfer_overhead_s": 2.4256,
+          "compute_time_est_s": 2.0,
+          "can_hide_transfer": true
+        },
+        {
+          "module": "Action Projections",
+          "size_gb": 0.003,
+          "h2d_time_s": 0.0004,
+          "d2h_time_s": 0.0012,
+          "total_transfer_overhead_s": 0.0016,
+          "compute_time_est_s": 0.001,
+          "can_hide_transfer": true
+        }
+      ],
+      "vlm_layerwise": {
+        "n_layers": 36,
+        "sync_total_s": 9.19,
+        "pipeline_total_s": 2.01,
+        "speedup": 4.58
+      },
+      "expert_10step": {
+        "total_s": 22.43
+      },
+      "total_inference_est": {
+        "baseline_s": 273.79,
+        "sync_offload_overhead_s": 33.59,
+        "async_offload_overhead_s": 26.4
+      },
+      "bandwidth_used": {
+        "h2d_gbps": 7.77,
+        "d2h_gbps": 2.48
+      }
+    }
+  ],
+  "comparison": {
+    "sync_time_s": 1.0593,
+    "async_time_s": 0.6933,
+    "speedup": 1.528,
+    "sync_peak_vram_gb": 0.4647,
+    "async_peak_vram_gb": 0.512,
+    "vram_overhead_gb": 0.0473
+  }
+}

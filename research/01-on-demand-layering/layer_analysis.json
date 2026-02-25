@@ -1,0 +1,74 @@
+{
+  "total_params": 11078526194,
+  "total_memory_bytes_fp16": 22157052388,
+  "load_time_seconds": 17.510522603988647,
+  "top_level_modules": {
+    "vlm": {
+      "params": 8797933808,
+      "memory_bytes": 17595867616,
+      "pct": 79.41
+    },
+    "expert": {
+      "params": 2279238656,
+      "memory_bytes": 4558477312,
+      "pct": 20.57
+    },
+    "action_space": {
+      "params": 0,
+      "memory_bytes": 0,
+      "pct": 0.0
+    },
+    "diffusion": {
+      "params": 0,
+      "memory_bytes": 0,
+      "pct": 0.0
+    },
+    "action_in_proj": {
+      "params": 1349632,
+      "memory_bytes": 2699264,
+      "pct": 0.01
+    },
+    "action_out_proj": {
+      "params": 4098,
+      "memory_bytes": 8196,
+      "pct": 0.0
+    }
+  },
+  "semantic_groups": {
+    "Vision Encoder (vlm.visual)": {
+      "params": 576388336,
+      "memory_bytes": 1152776672,
+      "pct": 5.2
+    },
+    "VLM Language Model (vlm.model - visual)": {
+      "params": 7583810560,
+      "memory_bytes": 15167621120,
+      "pct": 68.46
+    },
+    "VLM LM Head": {
+      "params": 637734912,
+      "memory_bytes": 1275469824,
+      "pct": 5.76
+    },
+    "Expert (Trajectory Decoder Backbone)": {
+      "params": 2279238656,
+      "memory_bytes": 4558477312,
+      "pct": 20.57
+    },
+    "Diffusion (Flow Matching)": {
+      "params": 0,
+      "memory_bytes": 0,
+      "pct": 0.0
+    },
+    "Action Projection (action_in_proj)": {
+      "params": 1349632,
+      "memory_bytes": 2699264,
+      "pct": 0.01
+    },
+    "Action Projection (action_out_proj)": {
+      "params": 4098,
+      "memory_bytes": 8196,
+      "pct": 0.0
+    }
+  }
+}
