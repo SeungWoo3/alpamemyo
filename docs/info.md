@@ -162,6 +162,34 @@
 - 각 denoising 스텝마다 Expert 트랜스포머가 실행
 - 독립적으로 동작하지 않고 Diffusion 프로세스의 일부
 
+## LLM 추론이 Memory-Bandwidth-Bound인 이유
+
+### Batch_size=1 Autoregressive 생성 시
+- 매 토큰마다 전체 모델 가중치를 VRAM에서 한 번 읽어야 함
+- RTX 3080 Ti 기준 (FP16 34.1 TFLOPS, 메모리 912 GB/s):
+  - 가중치 읽기: 16.45 GB / 912 GB/s ≈ **18.0ms/토큰** (병목)
+  - 연산: 7.58B × 2 FLOP / 34.1 TFLOPS ≈ **0.44ms/토큰** (읽기의 2.4%)
+- 연산 시간은 가중치 읽기 시간에 완전히 은닉됨
+- 따라서 모델 크기를 줄이면 속도도 비례하여 빨라짐 (데이터 읽기량 감소)
+
+### FP16 Alpamayo 이론적 최적 추론 시간 (스왑 없음, ≥24GB GPU)
+- VLM: 16.45 GB/토큰 × 256토큰 / 912 GB/s ≈ 4.62s
+- Expert: 4.56 GB × 10스텝 / 912 GB/s ≈ 0.05s
+- 기타 (Vision, KV Cache): ~0.3s
+- **합계: ~5.0s** (현재 273.79s의 98%가 스왑 오버헤드)
+
+## CoT vs CoC
+
+### Chain-of-Thought (CoT)
+- 일반 LLM 기법 (Wei et al., 2022)
+- "생각의 연쇄" — 논리적 추론을 단계별로 전개
+
+### Chain-of-Causation (CoC)
+- **Alpamayo 논문에서 제안**한 자율주행 특화 개념
+- "인과의 연쇄" — 원인→결과→행동의 인과관계를 명시적으로 추론
+- CoT의 자율주행 특화 버전. "무엇을 해야 하는지"가 아니라 "**왜** 그래야 하는지"가 핵심
+- 코드에서는 `<|cot_start|>`, `<|cot_end|>` 토큰을 사용하여 구현 레벨에서는 혼용됨
+
 ## 모듈 단위 스와핑 vs device_map="auto" vs 레이어 단위 스와핑
 
 ### 교수님 아이디어: 모듈 단위(stage-level) 동적 스와핑
@@ -183,6 +211,61 @@
 - 결국 VLM 내부에서도 **레이어 단위** 스와핑이 추가로 필요
 - 이것이 연구 방향 1(On-Demand Layering)과 방향 2(Memory Pipelining)에서 탐색한 내용
 - 최종적으로 **모듈 단위 + 레이어 단위** 복합 스와핑이 해법
+
+## WSL2 환경 오버헤드
+
+### WSL2에서의 GPU 접근 오버헤드
+현재 실험 환경은 네이티브 Linux가 아닌 WSL2. GPU 접근 시 추가 오버헤드 발생.
+
+| 항목 | WSL2 (현재) | 네이티브 Linux (예상) | 차이 |
+|------|------------|---------------------|------|
+| Pageable D2H 대역폭 | 2.48 GB/s | ~11 GB/s | **4.5배 느림** |
+| Pinned D2H 대역폭 | 11.8 GB/s | ~12+ GB/s | 유사 |
+| per-transfer 고정 오버헤드 | 0.36 ms | ~0.05 ms | **7배** |
+| cudaMemPrefetchAsync(CPU) | **미지원** | 지원 | — |
+
+- Pageable D2H 비정상 감속: WSL2 가상화 레이어의 영향
+- Pinned memory는 WSL2에서도 정상 → pinned 기반 구현이 핵심
+- 네이티브 Linux 전환 시 **약 40% 성능 개선** 예상
+- cudaMemPrefetchAsync(CPU) 미지원으로 CUDA Managed Memory 프리페치 경로 차단
+
+## VRAM 점유 구성 (Alpamayo 추론 시)
+
+### 정적 vs 동적 메모리
+- **정적 (93%)**: 모델 파라미터 = 22.16 GB
+  - VLM Language Model: 15.17 GB (63.7%)
+  - Expert: 4.56 GB (19.1%)
+  - VLM LM Head: 1.28 GB (5.4%)
+  - Vision Encoder: 1.15 GB (4.8%)
+- **동적 (7%)**: 추론 중 변하는 메모리 = ~1.66 GB
+  - KV Cache: ~0.56 GB (2.4%) — GQA 덕에 Full MHA의 1/4
+  - Activation + CUDA overhead: ~1.1 GB (4.6%) — SDPA로 O(n²) 회피
+
+### KV Cache가 작은 이유
+- Qwen3-VL은 GQA(Grouped Query Attention) 사용: KV Head 8개 (Attention Head 32개 대비 1/4)
+- 4,470 토큰 기준 KV Cache: ~559 MB (Full MHA였다면 ~2.2 GB)
+- 토큰당 KV Cache: ~144 KB (36 layers × 2 × 8 heads × 128 dim × 2 bytes)
+
+## 스왑 최적화의 구조적 한계
+
+### VRAM 대역폭 vs PCIe 대역폭
+- VRAM 내부 대역폭: 912 GB/s
+- PCIe Gen3 (pinned): 8.5 GB/s
+- **격차: 107배**
+
+### 파이프라이닝이 효과 없는 이유
+- 레이어 실행 시간: ~0.5ms
+- 레이어 전송 시간: ~45ms (PCIe)
+- 전송이 실행보다 90배 느림 → 전송을 연산으로 은닉 불가능
+
+### 성능 한계선
+| 전략 | 추론 시간 | 이론 최적 대비 |
+|------|----------|--------------|
+| 이론 최적 (스왑 없음) | ~5s | 1x |
+| 최선의 스왑 최적화 | ~80-150s | 16-30x |
+| 현재 Baseline | 273.79s | 55x |
+
+→ 12GB VRAM + PCIe Gen3에서 스왑 없는 성능에 근접하는 것은 구조적으로 불가능
 
 ## 연구 방향 의사결정
 

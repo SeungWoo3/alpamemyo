@@ -15,7 +15,7 @@ NVIDIA Alpamayo-R1-10B는 자율주행을 위한 Vision-Language-Action(VLA) 모
 
 - Alpamayo-R1-10B를 **12GB VRAM** 환경에서 효율적으로 구동하는 방법론 탐색
 - CPU-GPU 메모리 스와핑의 구조적 비효율 원인 규명
-- 3개 연구 방향에 대한 실험 기반 적용 가능성 판단
+- 2개 연구 방향에 대한 실험 기반 적용 가능성 판단
 - 최적 조합 전략 도출
 
 ### 1.3 베이스라인 측정 결과
@@ -101,9 +101,11 @@ RTSS 2022 Demand Layering 논문을 중심으로 25편의 관련 연구를 조�
 
 ---
 
-## 4. 연구 방향 1: On-Demand Layering & 메모리 파이프라이닝
+## 4. 연구 방향 1(A): 메모리 스와핑 — 로딩 전략
 
-On-Demand Layering(필요한 레이어만 GPU에 올리고 내리기)과 메모리 파이프라이닝(전송과 연산을 동시에 수행하여 전송 오버헤드 은닉)은 동일한 문제의 두 측면이다. 전자는 **"무엇을, 어떤 단위로 올릴 것인가"**, 후자는 **"어떻게 빠르게 올릴 것인가"**에 해당한다. 본 절에서 통합하여 분석한다.
+12GB VRAM에 ~21GB 모델을 올리려면 CPU-GPU 간 메모리 스와핑이 필수다. 메모리 스와핑 문제는 **"무엇을, 어떤 단위로 올릴 것인가"**(로딩 전략, 본 절)와 **"어떻게 빠르게 올리고, 한계는 어디인가"**(전송 최적화, 5절)의 두 관점으로 나뉜다.
+
+본 절에서는 로딩 전략을 분석한다.
 
 ### 4.1 레이어 구조 분석
 
@@ -124,30 +126,7 @@ Alpamayo의 레이어 구조를 정밀 분석한 결과, VLM Language Model이 �
 
 → `device_map` 및 accelerate 기반 자동 오프로딩은 Alpamayo의 커스텀 토큰 처리(`fuse_traj_tokens`)와 비호환. **커스텀 구현이 필수**.
 
-### 4.3 PCIe 대역폭 및 전송 성능 측정
-
-| 측정 항목 | 수치 |
-|----------|------|
-| PCIe H2D 대역폭 (pageable) | 7.77 GB/s |
-| PCIe D2H 대역폭 (pageable) | 2.48 GB/s (H2D의 1/3) |
-| VLM 단일 레이어 크기 | 0.386 GB |
-| 레이어당 H2D 전송 시간 | 0.344s |
-| CUDA 스트림 비동기 프리페치 스피드업 | **1.53x** |
-| VLM 레이어별 비동기 파이프라인 스피드업 (추정) | **4.58x** |
-
-### 4.4 모듈별 전송 실험 결과
-
-각 모듈을 개별적으로 CPU→GPU 전송 및 실행한 결과:
-
-| 모듈 | 크기 (BF16) | CPU→GPU 전송 | GPU 단독 탑재 |
-|------|------------|-------------|-------------|
-| Vision Encoder | 1.15 GB | 0.374s | 가능 |
-| Expert | 4.56 GB | 0.890s (forward 0.338s) | 가능 |
-| VLM 전체 | 17.60 GB | — | **불가능** (레이어별 필수) |
-
-이론적 순차 로딩 피크 VRAM: **~6.5 GB** (Expert + KV Cache가 병목)
-
-### 4.5 로딩 전략 비교
+### 4.3 로딩 전략 비교
 
 세 가지 로딩 전략 모두 **"사용할 때만 GPU에 올리고, 끝나면 내리는"** 동일한 원리이며, **로딩 단위**와 **모델 변경 여부**가 다르다.
 
@@ -189,9 +168,25 @@ Expert INT4 (1.14GB) 올림 → 실행 → 내림
 | B: 모듈별 로딩 (BF16) | 없음 | 모듈 통째 | ~18.4 GB | **불가능** | 단순하나 VLM>12GB |
 | C: INT4 + 모듈별 로딩 **(X — 배제)** | INT4 양자화 | 모듈 통째 | ~6.1 GB | 가능 | 매우 높음 |
 
-### 4.6 전송 방식별 성능 비교 (시나리오 A 상세)
+→ B는 불가능, C는 배제이므로, **시나리오 A(레이어별 로딩)**가 유일한 경로.
 
-B는 불가능, C는 배제이므로, **시나리오 A(레이어별 로딩)**의 전송 방식에 따른 성능 차이:
+### 4.4 모듈별 전송 실험 결과
+
+각 모듈을 개별적으로 CPU→GPU 전송 및 실행한 결과:
+
+| 모듈 | 크기 (BF16) | CPU→GPU 전송 | GPU 단독 탑재 |
+|------|------------|-------------|-------------|
+| Vision Encoder | 1.15 GB | 0.374s | 가능 |
+| Expert | 4.56 GB | 0.890s (forward 0.338s) | 가능 |
+| VLM 전체 | 17.60 GB | — | **불가능** (레이어별 필수) |
+
+VLM 단일 레이어: 0.386 GB, 레이어당 H2D 전송 0.344s
+
+이론적 순차 로딩 피크 VRAM: **~6.5 GB** (Expert + KV Cache가 병목)
+
+### 4.5 전송 방식별 성능 비교 (시나리오 A 상세)
+
+시나리오 A(레이어별 로딩)의 전송 방식에 따른 성능 차이:
 
 | 전송 방식 | 설명 | 피크 VRAM | 추정 추론 시간 | 실현성 |
 |----------|------|----------|--------------|--------|
@@ -210,7 +205,7 @@ B는 불가능, C는 배제이므로, **시나리오 A(레이어별 로딩)**의
   → 전송 시간이 실행 시간에 의해 은닉됨 (1.53x~4.58x 스피드업)
 ```
 
-### 4.7 결론
+### 4.6 결론
 
 - **핵심 경로**: 시나리오 A(레이어별 로딩) + 비동기 파이프라이닝
 - Autoregressive 디코딩에서 매 토큰마다 36개 레이어를 순회하므로, **비동기 프리페치로 전송 오버헤드를 은닉하는 것**이 관건
@@ -222,21 +217,30 @@ B는 불가능, C는 배제이므로, **시나리오 A(레이어별 로딩)**의
 
 ---
 
-## 5. 연구 방향 2: CPU-GPU 스왑 최적화
+## 5. 연구 방향 1(B): 메모리 스와핑 — 전송 최적화 & 성능 한계
 
-### 5.1 핵심 발견
+4절에서 레이어별 비동기 로딩이 유일한 경로임을 확인했다. 본 절에서는 같은 메모리 스와핑 문제의 다른 측면 — **"어떻게 빠르게 전송할 것인가"**와 **"성능 한계는 어디인가"**를 분석한다.
+
+### 5.1 전송 대역폭 측정
+
+| 측정 항목 | 수치 |
+|----------|------|
+| PCIe H2D 대역폭 (pageable) | 7.77 GB/s |
+| PCIe D2H 대역폭 (pageable) | 2.48 GB/s (H2D의 1/3) |
+| **Pinned H2D 대역폭** | **8.5 GB/s** |
+| **Pinned D2H 대역폭** | **11.8 GB/s** (H2D보다 빠름!) |
+| 최적 전송 청크 크기 | **2-8 MB** (12.4 GB/s, 단일 전송의 1.6x) |
+| WSL2 per-transfer 고정 오버헤드 | 0.36 ms |
+
+### 5.2 스왑 성능 핵심 발견
 
 | 발견 | 수치 |
 |------|------|
-| WSL2 Pageable D2H 감속 | **4.5x** (pinned 대비) |
-| Pinned H2D 대역폭 | 8.5 GB/s |
-| **Pinned D2H 대역폭** | **11.8 GB/s** (H2D보다 빠름!) |
-| 최적 전송 청크 크기 | **2-8 MB** (12.4 GB/s, 단일 전송의 1.6x) |
+| Pageable D2H 감속 (WSL2) | **4.5x** (pinned 대비) |
 | 12GB 초과 시 접근 시간 급증 | **26x** |
-| WSL2 per-transfer 고정 오버헤드 | 0.36 ms |
+| CUDA 스트림 비동기 프리페치 스피드업 | **1.53x** |
+| VLM 레이어별 비동기 파이프라인 스피드업 (추정) | **4.58x** |
 | cudaMemPrefetchAsync(CPU) | WSL2 미지원 |
-
-### 5.2 실험 결과
 
 **방향 2 결과 수정**: Pageable D2H 2.48 GB/s는 WSL2의 비정상적 감속이 원인. Pinned memory 사용 시 D2H가 H2D보다 1.4배 빠름 (11.8 vs 8.5 GB/s).
 
@@ -247,7 +251,23 @@ B는 불가능, C는 배제이므로, **시나리오 A(레이어별 로딩)**의
 4. 양방향 전송 경합 (D2H 2.05x 감속)
 5. Transformer attention의 비순차적 접근 패턴
 
-### 5.3 FP16 이론적 최적값 (스왑 없는 경우) 산출
+### 5.3 WSL2 환경 오버헤드
+
+현재 실험은 네이티브 Linux가 아닌 **WSL2** 위에서 수행되었다. WSL2는 GPU 접근 시 추가 오버헤드를 발생시킨다.
+
+| 항목 | WSL2 (현재) | 네이티브 Linux (예상) | 차이 |
+|------|------------|---------------------|------|
+| Pageable D2H 대역폭 | 2.48 GB/s | ~11 GB/s | **4.5배 느림** |
+| Pinned D2H 대역폭 | 11.8 GB/s | ~12+ GB/s | 유사 |
+| per-transfer 고정 오버헤드 | 0.36 ms | ~0.05 ms | **7배** |
+| cudaMemPrefetchAsync(CPU) | **미지원** | 지원 | — |
+
+- 현재 273.79초 중 일부는 WSL2 고유 오버헤드
+- 네이티브 Linux 전환 시 **약 40% 성능 개선** 예상 (특히 Pageable D2H 정상화)
+- Pinned memory 기반 구현에서는 WSL2 영향 적음 (pinned 대역폭은 유사)
+- **결론**: 최적화 방향성 탐색은 WSL2에서 유효하나, 최종 성능 평가는 네이티브 Linux에서 수행하는 것이 바람직
+
+### 5.4 FP16 이론적 최적값 (스왑 없는 경우) 산출
 
 VRAM이 충분한 환경(24GB+ GPU)에서 스왑 없이 동작할 때의 FP16 추론 시간을 GPU 메모리 대역폭으로부터 산출한다.
 
@@ -280,7 +300,9 @@ RTX 3080 Ti는 FP16 연산력 34.1 TFLOPS, 메모리 대역폭 912 GB/s이다. V
 
 Batch_size=1의 LLM 추론은 거의 항상 memory-bandwidth-bound이므로, 연산 시간은 가중치 읽기 시간에 완전히 은닉된다.
 
-### 5.4 적용 가능성 판단
+**참고**: 4-bit 양자화 모델이 스왑 없이 4.91초를 달성한 실측값이 위 이론적 산출(~5.0초)과 일치하여, 산출의 타당성을 뒷받침한다.
+
+### 5.5 적용 가능성 판단
 
 | 전략 | 추정 추론 시간 | 스왑 오버헤드 | VRAM | 실현성 |
 |------|-------------|-------------|------|--------|
@@ -293,16 +315,56 @@ Batch_size=1의 LLM 추론은 거의 항상 memory-bandwidth-bound이므로, 연
 
 **핵심 수치**: 현재 273.79초 중 **약 269초(98%)가 순수 스왑 오버헤드**. GPU 연산 자체는 ~5초면 충분하며, 스왑 최적화로 이 격차를 얼마나 좁히느냐가 연구의 핵심 성과 지표.
 
-**참고**: 4-bit 양자화 모델이 스왑 없이 4.91초를 달성한 실측값이 위 이론적 산출(~5.0초)과 일치하여, 산출의 타당성을 뒷받침한다.
+### 5.6 스왑 최적화의 근본적 한계
 
-**결론**: Pinned memory 사용이 필수 (특히 D2H). 2-8MB 청크 전송으로 대역폭 1.6x 향상 가능. 네이티브 Linux 환경 전환 시 WSL2 대비 40% 추가 개선 가능.
+스왑이 필요한 가중치(~9.5 GB)를 토큰마다 전송해야 하므로, VRAM 대역폭과 PCIe 대역폭의 격차가 성능 한계를 결정한다.
+
+| 경로 | 대역폭 | 토큰당 9.5GB 전송 | 256토큰 |
+|------|--------|-----------------|--------|
+| VRAM 내부 | 912 GB/s | 10ms | 2.6s |
+| PCIe Gen3 (pinned) | 8.5 GB/s | 1,118ms | **286s** |
+| **격차** | **107배** | | |
+
+비동기 파이프라이닝으로도 이 격차를 해소할 수 없다. 레이어 실행(~0.5ms)이 레이어 전송(~45ms)보다 90배 빨라, 전송 시간을 연산으로 은닉하는 것이 **구조적으로 불가능**하다.
+
+```
+이상적 파이프라이닝 (전송 ≈ 실행일 때 효과적):
+  전송: [====]         전송이 연산에 의해 은닉됨
+  실행:      [====]
+
+실제 상황 (전송 >> 실행):
+  전송: [=============================================]  45ms
+  실행:                                               [=] 0.5ms
+  → 44.5ms 대기 불가피, 파이프라이닝 효과 미미
+```
+
+| 전략 | 추론 시간 | 이론 최적 대비 |
+|------|----------|--------------|
+| 이론 최적 (스왑 없음, ≥24GB GPU) | ~5s | 1x |
+| **최선의 스왑 최적화 (12GB)** | **~80-150s** | **16-30x** |
+| 현재 Baseline (Unified Memory) | 273.79s | 55x |
+
+**결론**: 스왑 최적화로 273초 → 80~150초 개선은 가능하나, PCIe Gen3의 대역폭 한계(VRAM 대비 107배 느림)로 인해 5초(스왑 없음)에는 도달 불가능. 이는 12GB VRAM + PCIe Gen3 환경의 **구조적 한계**이다.
+
+스왑 없는 성능에 근접하려면:
+1. **VRAM 증설** (24GB+ GPU)
+2. **모델 축소** (양자화 — 배제됨)
+3. **더 빠른 인터커넥트** (PCIe Gen5: 2배, CXL/NVLink: 10배+)
+
+Pinned memory, 2-8MB 청크, 네이티브 Linux 등의 최적화는 이 한계 내에서의 개선이며, 근본적 해소는 아니다.
+
+### 5.7 결론
+
+- **Pinned memory + 2-8MB 청크 + 비동기 전송**이 핵심 최적화 조합
+- 현재 273초 → 80~150초 개선 가능, 그러나 이론적 최적(5초)과의 격차는 PCIe Gen3의 구조적 한계
+- WSL2 환경의 추가 오버헤드 존재 (Pageable D2H 4.5x 감속, per-transfer 7x) — 최종 평가는 네이티브 Linux에서 수행 필요
 
 > 상세: [03-swap-optimization/analysis.md](03-swap-optimization/analysis.md)
 > 시각화: [03-swap-optimization/figures/](03-swap-optimization/figures/)
 
 ---
 
-## 6. 연구 방향 3: 창의적 접근
+## 6. 연구 방향 2: 창의적 접근
 
 ### 6.1 7개 아이디어 분석 요약
 
@@ -349,13 +411,13 @@ Batch_size=1의 LLM 추론은 거의 항상 memory-bandwidth-bound이므로, 연
 
 ## 7. 종합 분석 및 권장 전략
 
-### 7.1 3개 연구 방향 비교 종합
+### 7.1 2개 연구 방향 비교 종합
 
 | 방향 | 핵심 결론 | 피크 VRAM | 추론 시간 | 구현 난이도 | 실현성 |
 |------|----------|----------|----------|-----------|--------|
-| **1. On-Demand Layering & 파이프라이닝** | **레이어별 비동기 로딩이 핵심, 커스텀 구현 필수** | **~6.5 GB** | **~400-600s+** | **매우 높음** | **핵심 경로** |
-| 2. 스왑 최적화 | Pinned 필수, 2-8MB 최적, D2H 4.5x 개선 | ~5.5-6.5 GB | ~80-200s | 높음 | 가능 |
-| 3. 창의적 접근 | 디퓨전 스텝 축소 등 (양자화/해상도: X — 배제) | ~6.0-7.5 GB | ~3.2-4.0s | 보통 | 부분적 |
+| **1(A). 메모리 스와핑 — 로딩 전략** | **레이어별 비동기 로딩이 유일한 경로, 커스텀 구현 필수** | **~6.5 GB** | **~400-600s+** | **매우 높음** | **핵심 경로** |
+| **1(B). 메모리 스와핑 — 전송 최적화** | **Pinned 필수, 2-8MB 최적, 구조적 한계 80-150s** | **~6.5 GB** | **~80-150s** | **높음** | **핵심 경로** |
+| 2. 창의적 접근 | 디퓨전 스텝 축소 등 (양자화/해상도: X — 배제) | ~6.0-7.5 GB | ~3.2-4.0s | 보통 | 부분적 |
 
 ### 7.2 최적 조합 전략 제안 (배제 반영)
 
@@ -428,35 +490,35 @@ Batch_size=1의 LLM 추론은 거의 항상 memory-bandwidth-bound이므로, 연
 |----------|---------|----------|
 | 선행연구 (Alpamayo) | `research/` | `prior-work-alpamayo.md` |
 | 관련 연구 (GPU 메모리) | `research/` | `related-research.md` |
-| 방향 1: On-Demand Layering & 파이프라이닝 | `research/01-on-demand-layering/`, `research/02-memory-pipelining/` | `analysis.md`, `analyze_layers.py`, `test_device_map.py`, `test_manual_offload.py`, `test_sequential_offload.py`, `test_async_transfer.py` |
-| 방향 2: 스왑 최적화 | `research/03-swap-optimization/` | `analysis.md`, `analyze_unified_memory.py`, `test_prefetch.py`, `test_pinned_transfer.py`, `analyze_wsl2_overhead.py` |
-| 방향 3: 창의적 접근 | `research/04-creative-approaches/` | `analysis.md`, `exp01_hybrid_quantization.py` ~ `exp07_activation_checkpointing.py` |
+| 방향 1(A): 메모리 스와핑 — 로딩 전략 | `research/01-on-demand-layering/`, `research/02-memory-pipelining/` | `analysis.md`, `analyze_layers.py`, `test_device_map.py`, `test_manual_offload.py`, `test_sequential_offload.py`, `test_async_transfer.py` |
+| 방향 1(B): 메모리 스와핑 — 전송 최적화 | `research/03-swap-optimization/` | `analysis.md`, `analyze_unified_memory.py`, `test_prefetch.py`, `test_pinned_transfer.py`, `analyze_wsl2_overhead.py` |
+| 방향 2: 창의적 접근 | `research/04-creative-approaches/` | `analysis.md`, `exp01_hybrid_quantization.py` ~ `exp07_activation_checkpointing.py` |
 | 통합 보고서 | `research/` | `final-report.md` |
 
 ### B. 생성된 시각화 목록
 
 | 방향 | 시각화 파일 | 설명 |
 |------|-----------|------|
-| 1 | `01-on-demand-layering/figures/01_memory_distribution.png` | 서브모듈별 메모리 분포 |
-| 1 | `01-on-demand-layering/figures/02_device_map_analysis.png` | device_map 배치 분석 |
-| 1 | `01-on-demand-layering/figures/03_strategy_comparison.png` | 전략 비교 |
-| 1 | `01-on-demand-layering/figures/04_per_stage_vram.png` | 모듈별 VRAM (BF16 vs INT4) |
-| 1 | `01-on-demand-layering/figures/05_pipeline_diagram.png` | On-Demand Layering 파이프라인 |
-| 1 | `02-memory-pipelining/figures/01_pipeline_diagram.png` | 추론 파이프라인 구조 |
-| 1 | `02-memory-pipelining/figures/02_vram_timeline.png` | VRAM 시계열 |
-| 1 | `02-memory-pipelining/figures/03_strategy_comparison.png` | 전략 비교 |
-| 1 | `02-memory-pipelining/figures/04_pcie_bandwidth.png` | PCIe 대역폭 측정 |
-| 1 | `02-memory-pipelining/figures/05_layerwise_analysis.png` | 모듈별 상세 분석 |
-| 2 | `03-swap-optimization/figures/01_unified_memory_timeline.png` | Unified Memory 모니터링 |
-| 2 | `03-swap-optimization/figures/02_bandwidth_comparison.png` | Pinned vs Pageable 대역폭 |
-| 2 | `03-swap-optimization/figures/03_granularity_bandwidth.png` | 전송 단위 vs 대역폭 |
-| 2 | `03-swap-optimization/figures/04_wsl2_overhead.png` | WSL2 오버헤드 분석 |
-| 2 | `03-swap-optimization/figures/05_strategy_comparison.png` | 스왑 전략 비교 |
-| 2 | `03-swap-optimization/figures/06_transfer_scaling.png` | 전송 크기별 스케일링 |
-| 3 | `04-creative-approaches/figures/01_hybrid_quantization_memory.png` | 하이브리드 양자화 메모리 |
-| 3 | `04-creative-approaches/figures/02_kv_cache_analysis.png` | KV Cache 분석 |
-| 3 | `04-creative-approaches/figures/03_layer_pruning.png` | 레이어 가지치기 |
-| 3 | `04-creative-approaches/figures/04_dynamic_resolution.png` | 동적 해상도 |
-| 3 | `04-creative-approaches/figures/05_diffusion_steps.png` | 디퓨전 스텝 축소 |
-| 3 | `04-creative-approaches/figures/06_priority_matrix.png` | 종합 우선순위 매트릭스 |
-| 3 | `04-creative-approaches/figures/07_offloading_strategies.png` | 오프로딩 전략별 Peak VRAM |
+| 1(A) | `01-on-demand-layering/figures/01_memory_distribution.png` | 서브모듈별 메모리 분포 |
+| 1(A) | `01-on-demand-layering/figures/02_device_map_analysis.png` | device_map 배치 분석 |
+| 1(A) | `01-on-demand-layering/figures/03_strategy_comparison.png` | 전략 비교 |
+| 1(A) | `01-on-demand-layering/figures/04_per_stage_vram.png` | 모듈별 VRAM (BF16 vs INT4) |
+| 1(A) | `01-on-demand-layering/figures/05_pipeline_diagram.png` | On-Demand Layering 파이프라인 |
+| 1(A) | `02-memory-pipelining/figures/01_pipeline_diagram.png` | 추론 파이프라인 구조 |
+| 1(A) | `02-memory-pipelining/figures/02_vram_timeline.png` | VRAM 시계열 |
+| 1(A) | `02-memory-pipelining/figures/03_strategy_comparison.png` | 전략 비교 |
+| 1(A) | `02-memory-pipelining/figures/04_pcie_bandwidth.png` | PCIe 대역폭 측정 |
+| 1(A) | `02-memory-pipelining/figures/05_layerwise_analysis.png` | 모듈별 상세 분석 |
+| 1(B) | `03-swap-optimization/figures/01_unified_memory_timeline.png` | Unified Memory 모니터링 |
+| 1(B) | `03-swap-optimization/figures/02_bandwidth_comparison.png` | Pinned vs Pageable 대역폭 |
+| 1(B) | `03-swap-optimization/figures/03_granularity_bandwidth.png` | 전송 단위 vs 대역폭 |
+| 1(B) | `03-swap-optimization/figures/04_wsl2_overhead.png` | WSL2 오버헤드 분석 |
+| 1(B) | `03-swap-optimization/figures/05_strategy_comparison.png` | 스왑 전략 비교 |
+| 1(B) | `03-swap-optimization/figures/06_transfer_scaling.png` | 전송 크기별 스케일링 |
+| 2 | `04-creative-approaches/figures/01_hybrid_quantization_memory.png` | 하이브리드 양자화 메모리 |
+| 2 | `04-creative-approaches/figures/02_kv_cache_analysis.png` | KV Cache 분석 |
+| 2 | `04-creative-approaches/figures/03_layer_pruning.png` | 레이어 가지치기 |
+| 2 | `04-creative-approaches/figures/04_dynamic_resolution.png` | 동적 해상도 |
+| 2 | `04-creative-approaches/figures/05_diffusion_steps.png` | 디퓨전 스텝 축소 |
+| 2 | `04-creative-approaches/figures/06_priority_matrix.png` | 종합 우선순위 매트릭스 |
+| 2 | `04-creative-approaches/figures/07_offloading_strategies.png` | 오프로딩 전략별 Peak VRAM |
