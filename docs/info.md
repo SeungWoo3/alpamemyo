@@ -5,6 +5,13 @@
 
 ---
 
+## 모델 네이밍 관례
+
+### "10B 모델"인데 실제 파라미터가 11.08B인 이유
+- 모델명의 숫자는 정확한 파라미터 수가 아닌 **사이즈 클래스(규모 범주)** 표시
+- 업계 관례: LLaMA-7B(실제 6.74B), LLaMA-70B(실제 68.98B), Qwen-7B(실제 7.62B) 등
+- 논문/문서 작성 시: 모델명은 공식 명칭(Alpamayo-R1-**10B**) 그대로, 파라미터 수 언급 시에는 정확한 수치(**11.08B**) 사용
+
 ## 모델 크기와 메모리
 
 ### 파라미터 수 → 메모리 변환
@@ -115,6 +122,45 @@
 사용자 코드 → Transformers (모델 로딩/추론) → Accelerate (디바이스 배치)
                                               → PyTorch (GPU 연산)
 ```
+
+## Alpamayo 아키텍처의 Expert 모듈
+
+### Expert란?
+- Diffusion Decoder의 핵심 엔진 — **denoising 트랜스포머**
+- VLM의 텍스트 설정(text_config)을 복제해서 만든 별도의 트랜스포머 모델
+- VLM과 구조는 비슷하지만 독립된 가중치를 가짐
+
+### 전체 파이프라인에서의 역할
+1. **Vision Encoder** (1.15GB): 이미지 → 비전 토큰
+2. **VLM** (15.17GB): 비전 토큰 + 텍스트 → Chain-of-Thought 추론 (텍스트 생성) + 프롬프트 캐시 생성
+3. **Expert** (Diffusion 포함 4.56GB): noisy action → 프롬프트 캐시 참고하며 반복 denoising → 최종 궤적 출력
+
+### VLM vs Expert 비유
+- **VLM**: "이 상황에서 어떻게 해야 할지 생각한다" (추론/텍스트)
+- **Expert**: "그 생각을 바탕으로 실제 행동(궤적)을 만든다" (action 생성)
+
+### VLM → Expert 정보 전달 방식
+- VLM이 넘기는 것은 hidden state가 아니라 **KV Cache (프롬프트 캐시)**
+- Hidden state 전달: 마지막 레이어 출력을 1회 전달 (정보 제한적)
+- KV Cache 전달: VLM이 생성한 **모든 토큰의 Key/Value**를 Expert가 attention으로 참조 (매 스텝마다 전체 맥락 활용)
+- Expert는 denoising 할 때마다 VLM의 전체 추론 과정을 들여다볼 수 있음
+
+### Flow Matching이란
+- 노이즈 → 깨끗한 데이터로 가는 **"경로(flow)"를 벡터 필드로 학습**하는 생성 모델
+- 시간 t=0(순수 노이즈)에서 t=1(깨끗한 궤적)까지, 매 스텝마다 Expert가 이동 방향(벡터 v)을 예측
+- 핵심 수식: `x_next = x + dt × v` (Euler 적분)
+- **기존 Diffusion과의 차이**: Diffusion은 노이즈(ε)를 예측하고 SDE 기반(확률적, 스텝 많이 필요), Flow Matching은 속도(v)를 예측하고 ODE 기반(결정적, **적은 스텝으로 가능**)
+- Alpamayo에서 사용하는 이유: 자율주행의 실시간 요구 → 10스텝 정도로 고품질 궤적 생성 가능
+- 디퓨전 스텝 수 = Expert 호출 횟수 → 스텝 축소가 곧 추론 시간 단축
+
+### 디코더 = Expert = Flow Matching 관계
+- 셋은 별개가 아니라 하나의 디코딩 파이프라인
+- **Flow Matching**: 디코딩 방법론 (어떻게 생성할 것인가, Diffusion의 ODE 변형)
+- **Expert**: 디코딩 엔진 (각 스텝에서 벡터 필드를 예측하는 트랜스포머)
+- **Action Decoder**: 이 둘을 합친 기능적 명칭
+- Expert는 Diffusion 샘플러의 `step_fn`으로 호출됨
+- 각 denoising 스텝마다 Expert 트랜스포머가 실행
+- 독립적으로 동작하지 않고 Diffusion 프로세스의 일부
 
 ## 모듈 단위 스와핑 vs device_map="auto" vs 레이어 단위 스와핑
 
