@@ -326,6 +326,39 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 | 기본 비동기 (Pageable) | max(53.83ms, 40.2ms) = 53.83ms | 450 × 53.83ms | **~24s** |
 | + Chunked (12.4 GB/s) | max(31ms, 40.2ms) = 40.2ms | 450 × 40.2ms | **~18s** |
 
+#### 실험 결과 (Experiment 08)
+
+구현: `research/08-async-pipeline/async_pipeline.py`
+
+**Variant A — Pageable Async (`non_blocking=True`):**
+
+| 항목 | 값 |
+|------|----|
+| 추론 시간 | **44.16s** — 개선 없음 |
+| 원인 | `non_blocking=True` + pageable memory는 CUDA 내부에서 bounce buffer staging이 발생하여 사실상 동기 전송 |
+
+> Pageable 메모리에서 `non_blocking=True`는 CUDA가 내부적으로 pinned bounce buffer로 복사 후 DMA를 수행하는데, 이 CPU-side 복사가 블로킹되어 비동기 효과가 없다.
+
+**Variant C — Staged Pinned Buffer (Double-Buffered):**
+
+| 항목 | 값 |
+|------|----|
+| **추론 시간** | **38.45s** (1.13x vs baseline 43.38s) |
+| Peak VRAM | 11.38 GB |
+| Pinned Host Memory | ~772 MB (double-buffered staging) |
+| DMA 오버랩 | 성공 — wait_dma 평균 **0.05ms** (DMA가 compute 중 완료) |
+| CPU staging 시간 | 평균 **44ms** (pageable → pinned memcpy) |
+| VLM passes | 13회 (baseline 15회 — 토큰 생성 variance) |
+
+**핵심 관찰:**
+
+1. **DMA 오버랩 검증 성공**: pinned memory 사용 시 DMA가 compute와 완전히 오버랩됨 (wait_dma 0.05ms)
+2. **병목 전이**: H2D DMA → **CPU staging memcpy (44ms)** 로 병목이 이동
+3. **전체 파라미터 pinning 불가**: VLM 오프로드 파라미터 ~11.6GB를 전부 pin하면 16GB RAM 한도 초과
+4. **실질 개선 13%**: 이론 예측(~24s) 대비 제한적 — CPU memcpy가 DMA 시간을 대체
+
+> **결론**: 비동기 파이프라인 개념은 실험적으로 검증되었다. DMA는 pinned memory를 사용할 때 compute와 진정으로 오버랩된다. 그러나 메모리 제약 시스템(16GB RAM)에서는 CPU staging memcpy가 새로운 병목이 되어 실질 개선은 ~13%에 그친다. 전체 파라미터를 pinned memory에 올릴 수 있는 충분한 RAM(32GB+)이 있다면 이론 예측치(~24s)에 근접할 것으로 예상된다.
+
 **선행 연구 대비 차별점:**
 
 | 시스템 | 연도 | H2D Prefetch | D2H 사용 이유 | 대상 |
@@ -340,18 +373,21 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 
 ## 6. 실행시간 비교 종합
 
-| 방법 | 추론 시간 | vs Baseline (273.79s) | 비고 |
-|------|----------|----------------------|------|
-| Baseline (BF16 Unified Memory) | 273.79s | 1x | 실측 |
-| **방법 1 (동기 H2D + Free)** | **43.38s** | **6.31x** | **실측** |
-| 방법 2 (청크 전송) | ~34s | **8.1x** | Pinned + 2-8MB 청크 |
-| 방법 3 (모듈 단위) | N/A | — | VLM > 12GB, 불가 |
-| 방법 4 (비동기 2-Stream) | ~24s | **11.4x** | 비동기 오버랩 |
-| **방법 4 + 2 (비동기 + 청크)** | **~18s** | **15.2x** | **최선** |
-| 이론 최적 (스왑 없음) | ~5s | 55x | 24GB+ GPU 필요 |
+| 방법 | 추론 시간 | vs Baseline (273.79s) | vs 방법1 (43.38s) | 비고 |
+|------|----------|----------------------|-------------------|------|
+| Baseline (BF16 Unified Memory) | 273.79s | 1x | — | 실측 |
+| **방법 1 (동기 H2D + Free)** | **43.38s** | **6.31x** | 1x | **실측** |
+| 방법 2 (청크 전송) | ~34s | **8.1x** | 1.28x | 이론 (Pinned + 2-8MB 청크) |
+| 방법 3 (모듈 단위) | N/A | — | — | VLM > 12GB, 불가 |
+| 방법 4a (비동기, Pageable) | 44.16s | 6.21x | 0.98x | **실측** — non_blocking 무효 |
+| **방법 4c (비동기, Staged Pinned)** | **38.45s** | **7.12x** | **1.13x** | **실측** — DMA 오버랩 성공 |
+| 방법 4 이론 (전체 Pinned) | ~24s | **11.4x** | 1.81x | 32GB+ RAM 필요 |
+| 방법 4 + 2 (비동기 + 청크) | ~18s | **15.2x** | 2.41x | 이론 최선 |
+| 이론 최적 (스왑 없음) | ~5s | 55x | 8.68x | 24GB+ GPU 필요 |
 
-> **현실적 목표**: 방법 4+2 (비동기 + 청크)로 **273.79s → ~18s**, 15배 가속.
-> 이론 최적(~5s) 대비 3.6배 차이는 PCIe Gen3 대역폭의 구조적 한계.
+> **실험 결과 요약**: 방법 4c (Staged Pinned Buffer)로 **43.38s → 38.45s**, 13% 가속 실측.
+> DMA 오버랩은 성공하나, 16GB RAM 제약으로 CPU staging memcpy(44ms)가 새 병목.
+> 32GB+ RAM에서 전체 파라미터 pinning이 가능하면 이론치 ~24s에 근접할 것으로 예상.
 
 ---
 

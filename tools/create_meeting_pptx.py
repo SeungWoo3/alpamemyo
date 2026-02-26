@@ -594,6 +594,27 @@ def main():
               left=Inches(0.5), top=Inches(3.8), width=Inches(12.0), height=Inches(3.0),
               col_widths=[Inches(3.5), Inches(1.5), Inches(4.0), Inches(3.0)], font_size=11, header_font_size=12)
 
+    # 슬라이드: 방법 4 실험 결과
+    slide = prs.slides.add_slide(layout_basic)
+    slide.placeholders[0].text = "방법 4: 실험 결과"
+    table_data = [
+        ["Variant", "추론 시간", "Peak VRAM", "핵심 관찰"],
+        ["A: Pageable async", "44.16s (1.0x)", "11.15 GB", "non_blocking 무효 (CUDA 내부 동기)"],
+        ["C: Staged pinned buffer", "38.45s (1.13x)", "11.38 GB", "DMA 오버랩 성공, CPU staging 병목"],
+    ]
+    add_table(slide, table_data,
+              left=Inches(0.5), top=Inches(1.2), width=Inches(12.0), height=Inches(2.2),
+              col_widths=[Inches(3.0), Inches(2.5), Inches(2.0), Inches(4.5)], font_size=13, header_font_size=14)
+
+    add_text_box(slide, Inches(0.5), Inches(3.8), Inches(12.0), Inches(3.0),
+                 "핵심 발견:\n"
+                 "• DMA 오버랩 성공: wait_dma avg 0.05ms (DMA가 compute 중 완료)\n"
+                 "• 병목 이동: H2D DMA → CPU memcpy (pageable→pinned, avg 44ms)\n"
+                 "• Pageable에서 non_blocking=True는 CUDA가 내부 bounce buffer로 동기 처리\n"
+                 "• 전체 파라미터 pinning(11.6GB) 불가: 16GB RAM 한계\n"
+                 "• 최적 조건(충분한 RAM + pinned memory) 시 이론 ~24s 가능",
+                 font_size=14, color=DARK)
+
     # ═══════════════════════════════════════════
     # 섹션 6: 종합 비교
     # ═══════════════════════════════════════════
@@ -609,8 +630,9 @@ def main():
         ["방법 1 (동기 H2D + Free)", "43.38s", "6.31x", "실측"],
         ["방법 2 (청크 전송)", "~34s", "8.1x", ""],
         ["방법 3 (모듈 단위)", "N/A", "—", "VLM>12GB, 불가"],
-        ["방법 4 (비동기 2-Stream)", "~24s", "11.4x", ""],
-        ["방법 4 + 2 (비동기 + 청크)", "~18s", "15.2x", "최선"],
+        ["방법 4 (비동기, staged pinned)", "38.45s", "7.1x", "실측"],
+        ["방법 4 (이론, 전체 pinned)", "~24s", "11.4x", "이론"],
+        ["방법 4 + 2 (비동기 + 청크)", "~18s", "15.2x", "이론 최선"],
         ["이론 최적 (스왑 없음)", "~5s", "55x", "24GB+ GPU"],
     ]
     add_table(slide, table_data,

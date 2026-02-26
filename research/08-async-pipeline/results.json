@@ -1,0 +1,42 @@
+{
+  "experiment": "async_2stream_pipeline",
+  "timestamp": "2026-02-26 16:03:31",
+  "gpu": "NVIDIA GeForce RTX 3080 Ti",
+  "baseline_method_1": {
+    "inference_time": 43.38,
+    "peak_vram_gb": 11.03,
+    "h2d_total_s": 24.226,
+    "free_total_s": 1.045
+  },
+  "variants": [
+    {
+      "variant": "variant_c_staged_pinned",
+      "cuda_load_time": 141.53,
+      "setup_time": 31.09,
+      "gpu_resident_gb": 9.86,
+      "vlm_layers_offloaded": 30,
+      "inference_time": 38.45,
+      "peak_vram_gb": 11.38,
+      "cot_preview": "[['Keep lane to continue driving sinceSlow traffic崖.']]",
+      "error": null,
+      "transfer_stats": {
+        "total_passes": 13,
+        "sync_h2d_count": 13,
+        "wait_dma_count": 377,
+        "free_count": 390,
+        "stage_copy_count": 377,
+        "sync_h2d_total_s": 1.105,
+        "wait_dma_total_s": 0.019,
+        "stage_copy_total_s": 16.6,
+        "prefetch_total_s": 17.009,
+        "free_total_s": 0.041,
+        "sync_h2d_avg_ms": 84.99,
+        "wait_dma_avg_ms": 0.05,
+        "stage_copy_avg_ms": 44.03,
+        "prefetch_total_avg_ms": 45.12,
+        "free_avg_ms": 0.11
+      },
+      "total_time": 222.72
+    }
+  ]
+}
