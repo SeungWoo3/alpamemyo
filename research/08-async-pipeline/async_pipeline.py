@@ -14,6 +14,7 @@ import os
 import time
 import json
 import gc
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "alpamayo", "src"))
 
@@ -337,6 +338,216 @@ class AsyncPipelineHookStaged:
 
 
 # ══════════════════════════════════════════════════════════════
+# Variant D: Threaded — Variant C의 stage_and_prefetch를 background thread에서 실행
+# ══════════════════════════════════════════════════════════════
+
+class AsyncPipelineHookThreaded:
+    """
+    Variant C + Background Thread.
+
+    Variant C와 동일한 full-layer pinned double buffer를 사용하되,
+    stage_and_prefetch를 background thread에서 실행하여
+    CPU memcpy(~44ms)를 GPU compute와 오버랩.
+
+    GIL은 C++ tensor.copy_() 동안 해제 → CPU memcpy와 GPU compute 병렬 실행.
+    DMA(pinned→GPU)는 transfer_stream에서 비동기.
+
+    Pipeline:
+      Main thread: wait_thread → wait_event → compute(N) → free(N)
+      Bg thread:   stage_copy(N+1, ~44ms) → DMA_launch(N+1)
+
+    Per-layer: max(thread_prefetch ~45ms, GPU_compute) + overhead
+    """
+
+    def __init__(self):
+        self.cpu_params = {}
+        self.vlm_layers = None
+        self.num_offload = 0
+
+        self.transfer_stream = torch.cuda.Stream()
+        self.prefetch_events = {}
+
+        # Race-free prefetch tracking
+        self.prefetch_target = -1
+
+        # Full-layer pinned double buffers (same as Variant C)
+        self.pinned_bufs = [None, None]
+        self.buf_idx = 0
+
+        # Thread pool
+        self.executor = ThreadPoolExecutor(max_workers=1)
+        self.prefetch_future = None
+
+        self.transfer_times = []
+        self.current_pass = -1
+        self.hooks = []
+
+    def save_cpu_refs(self, layers, num_offload):
+        self.vlm_layers = layers
+        self.num_offload = num_offload
+        for i in range(num_offload):
+            self.cpu_params[i] = {}
+            for name, param in layers[i].named_parameters():
+                self.cpu_params[i][name] = param.data
+        print(f"    Saved CPU refs for {num_offload} layers")
+
+    def allocate_pinned_buffers(self):
+        """Full-layer double-buffered pinned buffers (same as Variant C)"""
+        t0 = time.time()
+        total_bytes = 0
+        for b in range(2):
+            self.pinned_bufs[b] = {}
+            for name, tensor in self.cpu_params[0].items():
+                pinned = torch.empty_like(tensor, pin_memory=True)
+                self.pinned_bufs[b][name] = pinned
+                total_bytes += pinned.numel() * pinned.element_size()
+        t1 = time.time()
+        print(f"    Allocated 2 pinned bufs: {total_bytes / 1024**3:.3f} GB in {t1-t0:.1f}s")
+
+    def _threaded_stage_and_prefetch(self, layer_idx, buf_idx):
+        """
+        Background thread: stage_copy(all) → DMA(all).
+        CPU memcpy는 thread에서 실행 → main thread의 GPU compute와 병렬.
+        GIL released during C++ tensor.copy_() → true CPU/GPU parallelism.
+        """
+        t_start = time.perf_counter()
+        layer = self.vlm_layers[layer_idx]
+        param_dict = dict(layer.named_parameters())
+        buf = self.pinned_bufs[buf_idx]
+
+        # Step 1: CPU memcpy — all params: pageable → pinned
+        t_copy0 = time.perf_counter()
+        for name, cpu_tensor in self.cpu_params[layer_idx].items():
+            if name in buf:
+                buf[name].copy_(cpu_tensor)
+        t_copy1 = time.perf_counter()
+        self.transfer_times.append(("STAGE_COPY", t_copy1 - t_copy0, layer_idx, self.current_pass))
+
+        # Step 2: Async DMA — all params: pinned → GPU
+        event = torch.cuda.Event()
+        with torch.cuda.stream(self.transfer_stream):
+            for name in self.cpu_params[layer_idx]:
+                if name in param_dict and name in buf:
+                    param_dict[name].data = buf[name].to("cuda", non_blocking=True)
+            for bname, bval in layer.named_buffers():
+                if bval.device.type == "cpu":
+                    bval.data = bval.data.to("cuda", non_blocking=True)
+            event.record()
+
+        self.prefetch_events[layer_idx] = event
+
+        t_end = time.perf_counter()
+        self.transfer_times.append(("THREAD_PREFETCH", t_end - t_start, layer_idx, self.current_pass))
+
+    def _pre_forward(self, module, input, layer_idx):
+        t0 = time.perf_counter()
+
+        if layer_idx == 0:
+            self.current_pass += 1
+            if self.prefetch_future is not None:
+                self.prefetch_future.result()
+                self.prefetch_future = None
+            self.prefetch_target = -1
+
+        if self.prefetch_target == layer_idx and self.prefetch_future is not None:
+            t_tw = time.perf_counter()
+            self.prefetch_future.result()
+            self.prefetch_future = None
+            t_tw_done = time.perf_counter()
+            self.transfer_times.append(("WAIT_THREAD", t_tw_done - t_tw, layer_idx, self.current_pass))
+
+            torch.cuda.current_stream().wait_event(self.prefetch_events[layer_idx])
+            t1 = time.perf_counter()
+            self.transfer_times.append(("WAIT_EVENT", t1 - t_tw_done, layer_idx, self.current_pass))
+        else:
+            # First layer of each pass: sync H2D
+            param_dict = dict(module.named_parameters())
+            for name, cpu_tensor in self.cpu_params[layer_idx].items():
+                if name in param_dict:
+                    param_dict[name].data = cpu_tensor.to("cuda", non_blocking=False)
+            for name, buf in module.named_buffers():
+                if buf.device.type == "cpu":
+                    buf.data = buf.data.to("cuda", non_blocking=False)
+            torch.cuda.synchronize()
+            t1 = time.perf_counter()
+            self.transfer_times.append(("SYNC_H2D", t1 - t0, layer_idx, self.current_pass))
+
+        # Launch background prefetch for NEXT layer
+        next_idx = layer_idx + 1
+        if next_idx < self.num_offload:
+            buf_idx = self.buf_idx
+            self.buf_idx = 1 - self.buf_idx
+            self.prefetch_target = next_idx
+            self.prefetch_future = self.executor.submit(
+                self._threaded_stage_and_prefetch, next_idx, buf_idx
+            )
+
+    def _post_forward(self, module, input, output, layer_idx):
+        t0 = time.perf_counter()
+        param_dict = dict(module.named_parameters())
+        for name, cpu_tensor in self.cpu_params[layer_idx].items():
+            if name in param_dict:
+                param_dict[name].data = cpu_tensor
+        for name, buf in module.named_buffers():
+            if buf.device.type == "cuda":
+                buf.data = buf.data.cpu()
+        t1 = time.perf_counter()
+        self.transfer_times.append(("FREE", t1 - t0, layer_idx, self.current_pass))
+
+    def register_hooks(self, layers, num_offload):
+        for i in range(num_offload):
+            layer = layers[i]
+            pre = layer.register_forward_pre_hook(
+                lambda mod, inp, idx=i: self._pre_forward(mod, inp, idx)
+            )
+            post = layer.register_forward_hook(
+                lambda mod, inp, out, idx=i: self._post_forward(mod, inp, out, idx)
+            )
+            self.hooks.append(pre)
+            self.hooks.append(post)
+
+    def remove_hooks(self):
+        if self.prefetch_future is not None:
+            try:
+                self.prefetch_future.result(timeout=30)
+            except Exception:
+                pass
+        for h in self.hooks:
+            h.remove()
+        self.hooks.clear()
+        self.executor.shutdown(wait=True)
+
+    def get_stats(self):
+        sync_h2d = [t for ty, t, li, p in self.transfer_times if ty == "SYNC_H2D"]
+        wait_thread = [t for ty, t, li, p in self.transfer_times if ty == "WAIT_THREAD"]
+        wait_event = [t for ty, t, li, p in self.transfer_times if ty == "WAIT_EVENT"]
+        stage_copy = [t for ty, t, li, p in self.transfer_times if ty == "STAGE_COPY"]
+        thread_prefetch = [t for ty, t, li, p in self.transfer_times if ty == "THREAD_PREFETCH"]
+        free = [t for ty, t, li, p in self.transfer_times if ty == "FREE"]
+        return {
+            "total_passes": self.current_pass + 1,
+            "sync_h2d_count": len(sync_h2d),
+            "wait_thread_count": len(wait_thread),
+            "wait_event_count": len(wait_event),
+            "stage_copy_count": len(stage_copy),
+            "thread_prefetch_count": len(thread_prefetch),
+            "free_count": len(free),
+            "sync_h2d_total_s": round(sum(sync_h2d), 3),
+            "wait_thread_total_s": round(sum(wait_thread), 3),
+            "wait_event_total_s": round(sum(wait_event), 3),
+            "stage_copy_total_s": round(sum(stage_copy), 3),
+            "thread_prefetch_total_s": round(sum(thread_prefetch), 3),
+            "free_total_s": round(sum(free), 3),
+            "sync_h2d_avg_ms": round(sum(sync_h2d) / max(len(sync_h2d), 1) * 1000, 2),
+            "wait_thread_avg_ms": round(sum(wait_thread) / max(len(wait_thread), 1) * 1000, 2),
+            "wait_event_avg_ms": round(sum(wait_event) / max(len(wait_event), 1) * 1000, 2),
+            "stage_copy_avg_ms": round(sum(stage_copy) / max(len(stage_copy), 1) * 1000, 2),
+            "thread_prefetch_avg_ms": round(sum(thread_prefetch) / max(len(thread_prefetch), 1) * 1000, 2),
+            "free_avg_ms": round(sum(free) / max(len(free), 1) * 1000, 2),
+        }
+
+
+# ══════════════════════════════════════════════════════════════
 # 공통 인프라 (exp 07 동일)
 # ══════════════════════════════════════════════════════════════
 
@@ -575,7 +786,12 @@ def generate_visualizations(results):
         label = r["variant"].replace("_", "\n")
         labels.append(label)
         times.append(r["inference_time"])
-        colors.append("#E8793A" if "pageable" in r["variant"] else "#5CB85C")
+        if "pageable" in r["variant"]:
+            colors.append("#E8793A")   # orange
+        elif "threaded" in r["variant"]:
+            colors.append("#D9534F")   # red
+        else:
+            colors.append("#5CB85C")   # green
 
     fig, ax = plt.subplots(figsize=(10, 6))
     x = np.arange(len(labels))
@@ -602,7 +818,9 @@ def generate_visualizations(results):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--variant", choices=["a", "c", "both"], default="both")
+    parser.add_argument("--variant", choices=["a", "c", "d", "both", "all"], default="both")
+    parser.add_argument("--chunk-size-mb", type=int, default=4,
+                        help="Chunk size in MB for variant D (default: 4)")
     parser.add_argument("--visualize-only", action="store_true")
     args = parser.parse_args()
 
@@ -619,11 +837,11 @@ def main():
     gpu_name = torch.cuda.get_device_name(0)
     all_results = []
 
-    if args.variant in ("a", "both"):
+    if args.variant in ("a", "both", "all"):
         result_a = run_variant("variant_a_pageable_async", AsyncPipelineHookPageable)
         all_results.append(result_a)
 
-    if args.variant in ("c", "both"):
+    if args.variant in ("c", "both", "all"):
         def setup_pinned(hook):
             print("\n[Phase 2.5] Allocating pinned staging buffers...")
             hook.allocate_pinned_buffers()
@@ -631,6 +849,18 @@ def main():
         result_c = run_variant("variant_c_staged_pinned", AsyncPipelineHookStaged,
                                extra_setup=setup_pinned)
         all_results.append(result_c)
+
+    if args.variant in ("d", "all"):
+        def setup_threaded(hook):
+            print("\n[Phase 2.5] Allocating pinned staging buffers...")
+            hook.allocate_pinned_buffers()
+
+        result_d = run_variant(
+            "variant_d_threaded",
+            AsyncPipelineHookThreaded,
+            extra_setup=setup_threaded,
+        )
+        all_results.append(result_d)
 
     # 종합
     print(f"\n{'='*70}")
@@ -645,18 +875,34 @@ def main():
             speedup = baseline_time / r["inference_time"]
             print(f"  {r['variant']}: {r['inference_time']}s ({speedup:.2f}x vs baseline)")
 
-    # 저장
+    # 저장 — 기존 결과 병합
+    results_path = os.path.join(RESULTS_DIR, "results.json")
+    existing_variants = []
+    if os.path.exists(results_path):
+        try:
+            with open(results_path) as f:
+                existing = json.load(f)
+            existing_variants = existing.get("variants", [])
+        except Exception:
+            pass
+
+    # 새 결과의 variant 이름 set
+    new_variant_names = {r["variant"] for r in all_results}
+    # 기존 결과에서 중복 제거 후 병합
+    merged = [r for r in existing_variants if r["variant"] not in new_variant_names]
+    merged.extend(all_results)
+
     output = {
         "experiment": "async_2stream_pipeline",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "gpu": gpu_name,
         "baseline_method_1": {"inference_time": 43.38, "peak_vram_gb": 11.03,
                               "h2d_total_s": 24.226, "free_total_s": 1.045},
-        "variants": all_results,
+        "variants": merged,
     }
-    with open(os.path.join(RESULTS_DIR, "results.json"), "w") as f:
+    with open(results_path, "w") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
-    print(f"\nResults saved: results.json")
+    print(f"\nResults saved: results.json ({len(merged)} variants)")
 
     print("\nGenerating visualizations...")
     try:

@@ -1,6 +1,6 @@
 {
   "experiment": "async_2stream_pipeline",
-  "timestamp": "2026-02-26 16:03:31",
+  "timestamp": "2026-02-26 18:48:31",
   "gpu": "NVIDIA GeForce RTX 3080 Ti",
   "baseline_method_1": {
     "inference_time": 43.38,
@@ -37,6 +37,99 @@
         "free_avg_ms": 0.11
       },
       "total_time": 222.72
+    },
+    {
+      "variant": "variant_d_threaded_chunked_512MB",
+      "cuda_load_time": 129.83,
+      "setup_time": 63.08,
+      "gpu_resident_gb": 9.86,
+      "vlm_layers_offloaded": 30,
+      "inference_time": 22.89,
+      "peak_vram_gb": 11.46,
+      "cot_preview": "",
+      "error": null,
+      "transfer_stats": {
+        "total_passes": 2,
+        "sync_h2d_count": 2,
+        "wait_thread_count": 58,
+        "wait_event_count": 58,
+        "thread_prefetch_count": 58,
+        "free_count": 60,
+        "sync_h2d_total_s": 0.657,
+        "wait_thread_total_s": 7.197,
+        "wait_event_total_s": 0.003,
+        "thread_prefetch_total_s": 11.683,
+        "free_total_s": 0.005,
+        "sync_h2d_avg_ms": 328.62,
+        "wait_thread_avg_ms": 124.09,
+        "wait_event_avg_ms": 0.05,
+        "thread_prefetch_avg_ms": 201.43,
+        "free_avg_ms": 0.08
+      },
+      "total_time": 226.47
+    },
+    {
+      "variant": "variant_d_threaded_chunked_4MB",
+      "cuda_load_time": 132.06,
+      "setup_time": 35.0,
+      "gpu_resident_gb": 9.86,
+      "vlm_layers_offloaded": 30,
+      "inference_time": 554.64,
+      "peak_vram_gb": 11.62,
+      "cot_preview": "",
+      "error": null,
+      "transfer_stats": {
+        "total_passes": 256,
+        "sync_h2d_count": 256,
+        "wait_thread_count": 7424,
+        "wait_event_count": 7424,
+        "thread_prefetch_count": 7424,
+        "free_count": 7680,
+        "sync_h2d_total_s": 11.037,
+        "wait_thread_total_s": 496.22,
+        "wait_event_total_s": 0.311,
+        "thread_prefetch_total_s": 530.237,
+        "free_total_s": 0.598,
+        "sync_h2d_avg_ms": 43.11,
+        "wait_thread_avg_ms": 66.84,
+        "wait_event_avg_ms": 0.04,
+        "thread_prefetch_avg_ms": 71.42,
+        "free_avg_ms": 0.08
+      },
+      "total_time": 731.05
+    },
+    {
+      "variant": "variant_d_threaded",
+      "cuda_load_time": 125.2,
+      "setup_time": 57.25,
+      "gpu_resident_gb": 9.86,
+      "vlm_layers_offloaded": 30,
+      "inference_time": 62.61,
+      "peak_vram_gb": 11.08,
+      "cot_preview": "",
+      "error": null,
+      "transfer_stats": {
+        "total_passes": 26,
+        "sync_h2d_count": 26,
+        "wait_thread_count": 754,
+        "wait_event_count": 754,
+        "stage_copy_count": 754,
+        "thread_prefetch_count": 754,
+        "free_count": 780,
+        "sync_h2d_total_s": 1.587,
+        "wait_thread_total_s": 28.474,
+        "wait_event_total_s": 0.058,
+        "stage_copy_total_s": 32.963,
+        "thread_prefetch_total_s": 33.772,
+        "free_total_s": 0.183,
+        "sync_h2d_avg_ms": 61.04,
+        "wait_thread_avg_ms": 37.76,
+        "wait_event_avg_ms": 0.08,
+        "stage_copy_avg_ms": 43.72,
+        "thread_prefetch_avg_ms": 44.79,
+        "free_avg_ms": 0.23
+      },
+      "total_time": 256.17
     }
   ]
 }

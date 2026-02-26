@@ -359,6 +359,38 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 
 > **결론**: 비동기 파이프라인 개념은 실험적으로 검증되었다. DMA는 pinned memory를 사용할 때 compute와 진정으로 오버랩된다. 그러나 메모리 제약 시스템(16GB RAM)에서는 CPU staging memcpy가 새로운 병목이 되어 실질 개선은 ~13%에 그친다. 전체 파라미터를 pinned memory에 올릴 수 있는 충분한 RAM(32GB+)이 있다면 이론 예측치(~24s)에 근접할 것으로 예상된다.
 
+**Variant D — Threaded `stage_and_prefetch` (Background Thread):**
+
+Variant C의 full-layer pinned double buffer 방식을 background thread에서 실행하는 방식이다. CPU memcpy(~44ms)를 background thread에서 실행하여 GPU compute와 오버랩한다. Python의 GIL은 C++ 확장인 `tensor.copy_()` 실행 중에는 해제되므로, CPU memcpy와 GPU compute가 진정으로 병렬 실행된다.
+
+| 항목 | 값 |
+|------|----|
+| **per-pass** | **2.41s** (Baseline 2.89s, Variant C 2.96s) |
+| **vs Baseline** | **약 1.20x per-pass 개선** |
+| Peak VRAM | 11.08 GB (안전) |
+| 병목 | DMA latency (~46ms) — memcpy 완료 후에야 DMA 시작 |
+
+**핵심 관찰:**
+
+1. **CPU memcpy 오버랩 성공**: background thread에서 CPU memcpy를 실행하여 GPU compute 시간과 겹침
+2. **GIL 회피 확인**: `tensor.copy_()`는 C++ 레벨에서 실행되어 GIL이 해제됨
+3. **DMA latency 잔존**: memcpy가 완료된 후에야 DMA가 시작되므로 ~46ms DMA latency는 오버랩되지 않음
+4. **per-pass 기준 유의미한 개선**: Variant C(2.96s)보다 빠르고, Baseline(2.89s)보다도 빠름
+
+**Chunked Transfer 실험 — 실패:**
+
+chunk-level pipelining (4MB 청크, ring buffer 등)과 per-param interleaving (memcpy→DMA를 param별로 교차)을 시도했으나, 모두 **파라미터 corruption 발생**으로 실패했다.
+
+| 시도 | 방법 | 결과 |
+|------|------|------|
+| Chunk-level pipelining | 4MB 청크 단위 ring buffer | 파라미터 corruption |
+| Per-param interleaving | param별 memcpy→DMA 교차 | 파라미터 corruption |
+| 순차 실행 (all memcpy → all DMA) | chunking 없음 | **정상 동작** |
+
+**실패 원인 분석**: background thread에서 `with torch.cuda.stream()` 블록 안에서 CPU memcpy와 CUDA DMA를 혼합할 때, 데이터 정합성 문제가 발생한다. CUDA stream의 동기화 경계에서 CPU 측 버퍼 상태가 불확실해지기 때문이다. chunking 없이 순차적으로 (all memcpy → all DMA) 실행할 때만 정상 동작이 확인되었다.
+
+> **결론**: Variant D (threaded stage_and_prefetch)는 per-pass 기준 1.20x 개선을 달성했다. CPU memcpy의 오버랩은 성공했으나, DMA latency의 추가 오버랩(chunked transfer)은 데이터 정합성 문제로 불가능했다. 현재 환경(16GB RAM)에서의 실질적 최선 방법이다.
+
 **선행 연구 대비 차별점:**
 
 | 시스템 | 연도 | H2D Prefetch | D2H 사용 이유 | 대상 |
@@ -381,12 +413,15 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 | 방법 3 (모듈 단위) | N/A | — | — | VLM > 12GB, 불가 |
 | 방법 4a (비동기, Pageable) | 44.16s | 6.21x | 0.98x | **실측** — non_blocking 무효 |
 | **방법 4c (비동기, Staged Pinned)** | **38.45s** | **7.12x** | **1.13x** | **실측** — DMA 오버랩 성공 |
+| **방법 4d (Threaded stage_and_prefetch)** | **per-pass 2.41s** | — | **1.20x per-pass** | **실측** — CPU memcpy 오버랩 성공 |
 | 방법 4 이론 (전체 Pinned) | ~24s | **11.4x** | 1.81x | 32GB+ RAM 필요 |
 | 방법 4 + 2 (비동기 + 청크) | ~18s | **15.2x** | 2.41x | 이론 최선 |
 | 이론 최적 (스왑 없음) | ~5s | 55x | 8.68x | 24GB+ GPU 필요 |
 
 > **실험 결과 요약**: 방법 4c (Staged Pinned Buffer)로 **43.38s → 38.45s**, 13% 가속 실측.
+> 방법 4d (Threaded)로 per-pass 기준 **2.89s → 2.41s**, 약 20% 가속 실측.
 > DMA 오버랩은 성공하나, 16GB RAM 제약으로 CPU staging memcpy(44ms)가 새 병목.
+> Chunked transfer는 데이터 정합성 문제로 불가, 순차 실행(all memcpy → all DMA)만 정상 동작.
 > 32GB+ RAM에서 전체 파라미터 pinning이 가능하면 이론치 ~24s에 근접할 것으로 예상.
 
 ---
