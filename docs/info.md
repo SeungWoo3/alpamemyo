@@ -325,3 +325,61 @@
 
 ---
 
+## 추론 시 Activation + Overhead (동적 메모리) 발생 원인
+
+Alpamayo 추론 시 정적 파라미터(22.16GB) 외에 ~1.10GB의 동적 메모리가 추가 점유된다.
+
+### 구성 요소
+1. **Activations (~0.3-0.5 GB)**: Forward pass 중 현재 레이어의 중간 텐서
+   - Hidden state `[batch, seq_len, 4096]` (레이어 간 전달)
+   - Attention score 행렬 (Q·K^T), softmax 결과
+   - MLP gate/up projection 중간값 (4096→11008→4096)
+   - 추론이므로 backprop용 전체 보관 불필요, 현재 1개 레이어 분만 필요
+2. **CUDA Context / Runtime (~0.3-0.5 GB)**: GPU 드라이버 + CUDA 런타임 고정 메모리
+   - cuDNN 커널 워크스페이스 (최적화된 attention/conv 커널용)
+   - `torch.cuda.init()` 시점에 할당
+3. **PyTorch Caching Allocator Fragmentation (~0.1-0.3 GB)**
+   - `cudaFree` 호출 대신 메모리 풀 캐싱 → 단편화로 실사용보다 점유 큼
+
+### 발생 시점
+- CUDA Context: 모델 로드 시 고정 할당
+- Activations: 매 레이어 forward마다 할당/해제 반복, 레이어 순차 실행이라 동시 1개분만 필요
+- Fragmentation: 할당/해제 누적으로 점진 증가, `empty_cache()`로 일부 회수 가능
+
+---
+
+## GQA (Grouped Query Attention)
+
+MHA(Multi-Head Attention)의 메모리 효율적 변형. KV Cache 크기를 대폭 줄인다.
+
+- **MHA**: Q, K, V 모두 동일한 head 수 (예: 32 heads → K 32개, V 32개)
+- **GQA**: Q head 수는 유지, K/V는 소수 그룹으로 공유 (예: Q 32 heads / KV 8 groups → KV 1/4)
+- Alpamayo VLM (Qwen3-VL-8B): Q 32 heads / KV 8 groups → KV Cache 0.56GB (전체 2.4%)
+- 일반 LLM (Full MHA + 긴 컨텍스트): KV Cache 수~수십 GB (30-50%+)
+
+---
+
+## CUDA Unified Memory 동작 원리
+
+CUDA Unified Memory는 GPU VRAM + CPU RAM을 **단일 가상 주소 공간**으로 통합한다.
+
+### 물리 메모리 배분 (Alpamayo 22.16GB, VRAM 12GB, RAM 16GB)
+- `.to("cuda")` 시 가상 주소 22.16GB 할당, 물리적으로는 VRAM(12GB) + CPU RAM(~10GB)에 분산
+- GPU가 페이지 접근 시 VRAM에 없으면 **page fault** → 드라이버가 CPU RAM에서 VRAM으로 이동 (다른 페이지 evict)
+- CPU RAM마저 부족하면 OS 디스크 swap까지 사용 (극단적으로 느림)
+- 페이지 단위: 64KB, 수천 회 page fault로 273.79s 소요
+
+### Unified Memory vs device_map="auto" 비교
+| 항목 | Unified Memory | device_map="auto" |
+|------|---------------|-------------------|
+| 관리 주체 | CUDA 드라이버 (HW/OS 레벨) | HuggingFace Accelerate (프레임워크) |
+| 배치 단위 | 페이지 (64KB) | 레이어 (수백 MB) |
+| 배치 시점 | 런타임 on-demand (page fault) | 로드 타임 정적 결정 |
+| 이동 방식 | 반응적 (접근 시 이동) | 능동적 (forward hook으로 이동) |
+| 정확성 | 항상 동작 (느릴 뿐) | Alpamayo에서 실패 (cross-device 연산 오류) |
+| 제어 가능성 | 불가 (드라이버 자동) | 가능 (레이어별 배치 지정) |
+
+핵심: UM은 "전부 GPU에 있는 척" 페이지 단위 투명 스왑, device_map은 "레이어별 명시 배치". UM은 항상 동작하지만 제어 불가, device_map은 제어 가능하지만 cross-device 연산에서 실패.
+
+---
+
