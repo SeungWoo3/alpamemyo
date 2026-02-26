@@ -27,8 +27,10 @@ Markdown -> HTML -> PDF 변환 도구.
 
 import argparse
 import os
+import re
 import sys
 import logging
+from datetime import datetime
 from pathlib import Path
 
 import markdown
@@ -280,10 +282,98 @@ dd {
     margin-left: 1.5em;
     margin-bottom: 0.3em;
 }
+
+/* ── 표지 페이지 ──────────────────────────────────────── */
+@page cover {
+    margin: 2.5cm;
+    @bottom-center { content: none; }
+}
+.cover-page {
+    page: cover;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    text-align: center;
+}
+.cover-page .cover-title {
+    font-size: 28pt;
+    font-weight: bold;
+    color: #1a1a2e;
+    line-height: 1.3;
+    margin-bottom: 0.8em;
+    padding: 0 1em;
+}
+.cover-page .cover-divider {
+    width: 60%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #2c5282, transparent);
+    margin: 1em auto;
+}
+.cover-page .cover-meta {
+    font-size: 13pt;
+    color: #555;
+    line-height: 2;
+    margin-top: 1em;
+}
+.cover-page .cover-meta .label {
+    color: #888;
+    font-size: 10pt;
+}
+.cover-page .cover-project {
+    font-size: 11pt;
+    color: #777;
+    margin-top: 3em;
+    padding-top: 1.5em;
+    border-top: 1px solid #ddd;
+}
 """
 
 # Pygments 스타일 CSS (코드 하이라이트)
 PYGMENTS_CSS = HtmlFormatter(style="default").get_style_defs(".codehilite")
+
+
+def _extract_cover_info(md_text: str) -> dict:
+    """Markdown 텍스트에서 표지에 사용할 정보를 추출한다.
+
+    추출 항목:
+        - title: 첫 번째 H1 제목
+        - date: 본문 내 날짜 패턴 (YYYY-MM-DD) 또는 오늘 날짜
+        - author: '작성자:' 패턴에서 추출, 없으면 기본값
+    """
+    info: dict = {}
+
+    # 제목: 첫 번째 # 헤딩
+    m = re.search(r"^#\s+(.+)$", md_text, re.MULTILINE)
+    info["title"] = m.group(1).strip() if m else "Untitled"
+
+    # 날짜: '> ... YYYY-MM-DD' 또는 본문 내 날짜
+    m = re.search(r"(\d{4}-\d{2}-\d{2})", md_text)
+    info["date"] = m.group(1) if m else datetime.now().strftime("%Y-%m-%d")
+
+    info["author"] = "노승우"
+
+    return info
+
+
+def _build_cover_html(info: dict) -> str:
+    """표지 페이지 HTML을 생성한다."""
+    author_line = ""
+    if info["author"]:
+        author_line = f'<div><span class="label">작성자</span><br>{info["author"]}</div>'
+
+    return f"""<div class="cover-page">
+    <div class="cover-title">{info["title"]}</div>
+    <div class="cover-divider"></div>
+    <div class="cover-meta">
+        <div><span class="label">날짜</span><br>{info["date"]}</div>
+        {author_line}
+    </div>
+    <div class="cover-project">Alpamayo VRAM Optimization Research</div>
+</div>
+"""
 
 
 def md_to_html(md_text: str, base_path: str = ".") -> str:
@@ -327,6 +417,10 @@ def md_to_html(md_text: str, base_path: str = ".") -> str:
     body = md.convert(md_text)
     toc = getattr(md, "toc", "")
 
+    # 표지 생성
+    cover_info = _extract_cover_info(md_text)
+    cover_html = _build_cover_html(cover_info)
+
     html = f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -337,6 +431,7 @@ def md_to_html(md_text: str, base_path: str = ".") -> str:
 </style>
 </head>
 <body>
+{cover_html}
 {toc}
 {body}
 </body>
