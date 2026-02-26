@@ -140,49 +140,45 @@ Layer i+2:                        [ Read_i+2  ][ Copy_i+2  ][ Kernel_i+2  ]
 |---|---|---|
 | GPU | iGPU (통합 메모리) | dGPU (RTX 3080 Ti, 12GB) |
 | 스토리지 | NVMe SSD | CPU RAM |
-| 파이프라인 | 3-Stage (Read→Copy→Kernel) | **Sequential** (H2D→Execute→D2H) |
+| 파이프라인 | 3-Stage (Read→Copy→Kernel) | **Sequential** (H2D→Execute→Free) |
 | 대상 모델 | 단일 DNN | VLA (Vision-Language-Action) |
 
-> 우리 구현은 원 논문의 파이프라인이 아닌 **Sequential Architecture**에 해당: 레이어별 동기식 H2D → Execute → D2H (파이프라이닝 없음).
+> 파라미터 오프로딩 추론에서는 D2H(GPU→CPU 복사)가 불필요하다. CPU에 파라미터 원본이 보존되어 있으므로, 사용 완료된 레이어는 GPU 메모리를 해제(free)하기만 하면 된다.
 
 ### 3.2 실험 결과
 
-구현: `research/06-demand-layering-impl/demand_layering.py`
+구현: `research/07-demand-layering-no-d2h/demand_layering_no_d2h.py`
 - VLM 36개 레이어 중 30개를 CPU로 오프로드, 6개는 GPU 상주
-- `register_forward_pre_hook()` / `register_forward_hook()`으로 동적 로드/언로드
+- `register_forward_pre_hook()` / `register_forward_hook()`으로 동적 로드/Free
+- D2H 제거: `module.to("cpu")` 대신 CPU 원본 참조 복원 + GPU 메모리 해제
 
 | 항목 | 값 |
 |------|----|
-| **추론 시간** | **116.51s** |
+| **추론 시간** | **43.38s** |
 | Peak VRAM | 11.03 GB |
 | GPU 상주 | 9.86 GB |
-| H2D 전송 | 450회, 총 28.9s (평균 64.23 ms/layer) |
-| D2H 전송 | 450회, 총 70.5s (평균 156.72 ms/layer) |
-| vs Baseline (273.79s) | **2.35x 빠름** |
+| H2D 전송 | 450회, 총 24.23s (평균 53.83 ms/layer) |
+| GPU Free | 450회, 총 1.05s (평균 2.32 ms/layer) |
+| vs Baseline (273.79s) | **6.31x 빠름** |
 
-### 3.3 한계 분석
+### 3.3 시간 구성 분석
 
-추론 시간 116.51s의 구성:
+추론 시간 43.38s의 구성:
 
 ```
-H2D 전송:  28.9s  (24.8%)
-D2H 전송:  70.5s  (60.5%)  ← 불필요한 오버헤드
-계산:      ~17.1s (14.7%)
+H2D 전송:  24.23s (55.9%)
+계산:      ~18.1s (41.7%)
+GPU Free:   1.05s  (2.4%)
 ────────────────────────────
-합계:      116.51s
+합계:       43.38s
 ```
 
-**핵심 문제점:**
+**핵심 관찰:**
 
-1. **추론 시간의 85%가 데이터 전송** (H2D 28.9s + D2H 70.5s = 99.4s)
-2. **D2H가 H2D보다 2.4x 느림** (평균 156.72ms vs 64.23ms)
-3. **D2H는 불필요**: CPU에 파라미터 원본이 보존되어 있으므로, GPU 메모리 해제(free)만 하면 됨
-4. **D2H 70.5s는 완전히 제거 가능한 오버헤드** — 추론 시간의 60%가 낭비
-5. **동기식 전송**으로 PCIe 유휴 시간 多 — 계산과 전송이 겹치지 않음
-
-![Transfer Breakdown](figures/transfer_breakdown.png)
-
-![Demand Layering Comparison](figures/demand_layering_comparison.png)
+1. **H2D 전송이 추론 시간의 56%** — PCIe 대역폭이 여전히 병목
+2. **GPU Free는 2.4%로 무시 가능** (평균 2.32ms/layer) — D2H 대비 67배 빠름
+3. **동기식 전송**으로 PCIe 유휴 시간 多 — 비동기 오버랩으로 추가 개선 가능
+4. Per-layer: H2D 53.83ms + Compute 40.2ms + Free 2.32ms = ~96ms
 
 ---
 
@@ -192,27 +188,23 @@ D2H 전송:  70.5s  (60.5%)  ← 불필요한 오버헤드
 
 - VLM 36레이어 중 30개 오프로드 × 15 VLM passes = **450 transfers**
 - 레이어당 크기: ~386 MB (BF16), ~0.193 GB
-- Per-layer H2D (현재 측정): 64.23 ms
-- Per-layer compute (추정): ~37 ms (17.1s ÷ 450)
+- Per-layer H2D (실측): 53.83 ms
+- Per-layer compute (실측): ~40.2 ms (18.1s ÷ 450)
+- Per-layer Free (실측): 2.32 ms
 
 ### 4.1 방법 1: 레이어 단위 동기 스왑 (Synchronous On-Demand)
 
-**개념:** 개별 Transformer 레이어를 forward hook으로 GPU↔CPU 간 동기식 이동.
+**개념:** 개별 Transformer 레이어를 forward hook으로 GPU에 로드 → 실행 → GPU 해제. CPU 원본은 유지되므로 D2H(GPU→CPU 복사)는 수행하지 않는다.
 
 ```
-Layer N:  [H2D 64ms][Compute 37ms][D2H 157ms]
-Layer N+1:                                    [H2D 64ms][Compute 37ms][D2H 157ms]
-→ 레이어당 ~258ms, 전체: 116.51s
+Layer N:  [H2D 54ms][Compute 40ms][Free 2ms]
+Layer N+1:                                   [H2D 54ms][Compute 40ms][Free 2ms]
+→ 레이어당 ~96ms, 전체: 43.38s
 ```
 
-**성능:**
+**성능: 43.38s** (실측, vs Baseline 273.79s → **6.31x 가속**)
 
-| 조건 | 추론 시간 | 비고 |
-|------|----------|------|
-| 현재 구현 (D2H 포함) | **116.51s** | 실측 |
-| D2H 제거 시 | **~46s** | H2D 28.9s + compute 17.1s |
-
-**구현 상태:** 완료 (`research/06-demand-layering-impl/demand_layering.py`)
+**구현 상태:** 완료 (`research/07-demand-layering-no-d2h/demand_layering_no_d2h.py`)
 
 ### 4.2 방법 2: 최적 청크 전송 (2-8MB Chunked Transfer)
 
@@ -229,7 +221,7 @@ Layer N+1:                                    [H2D 64ms][Compute 37ms][D2H 157ms
 | 512 MB (단일) | 7.77 GB/s | 기준 |
 | PCIe Gen3 이론 | 15.75 GB/s | 실측 79% 활용 |
 
-**성능:** H2D 28.9s / 1.6 ≈ 18s + compute 17.1s ≈ **~35s**
+**성능:** H2D 24.23s / 1.6 ≈ 15s + compute 18.1s + free 1.0s ≈ **~34s**
 
 **구현 상태:** 벤치마크 완료 (`research/03-swap-optimization/`)
 
@@ -269,17 +261,7 @@ Expert:          4.56 GB  → ✓  GPU 적재 가능
 
 ### 4.5 방법 4: 비동기 2-Stream 파이프라인 (Prefetch + Free)
 
-**핵심 통찰 — D2H는 불필요:**
-
-파라미터 오프로딩 추론에서 GPU→CPU 복사(D2H)는 필요 없다.
-파라미터 원본은 CPU 메모리에 이미 존재하므로, GPU 메모리를 **해제(free)하기만 하면 된다.**
-
-```
-D2H가 필요한 경우:   Activation 저장 (학습), KV Cache 보존
-D2H가 불필요한 경우: 파라미터 오프로딩 (추론) ← 우리 시나리오
-```
-
-**개념:** 2개의 CUDA 스트림으로 계산과 H2D prefetch를 비동기 오버랩.
+**개념:** 2개의 CUDA 스트림으로 계산과 H2D prefetch를 비동기 오버랩. 방법 1이 동기식(H2D → Compute → Free 순차)인 반면, 방법 4는 다음 레이어의 H2D를 현재 레이어의 Compute와 겹친다.
 
 ```
 시간 →
@@ -288,12 +270,12 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
                  + Layer N-1 free   + Layer N free     + Layer N+1 free
 ```
 
-**이론 시간 산출:**
+**이론 시간 산출 (실측 기반):**
 
 | 시나리오 | Per-layer | 450 layers | 총 시간 |
 |----------|-----------|------------|---------|
-| 기본 비동기 (Pageable) | max(64ms, 37ms) = 64ms | 450 × 64ms | **~29s** |
-| + Chunked (12.4 GB/s) | max(31ms, 37ms) = 37ms | 450 × 37ms | **~17s** |
+| 기본 비동기 (Pageable) | max(53.83ms, 40.2ms) = 53.83ms | 450 × 53.83ms | **~24s** |
+| + Chunked (12.4 GB/s) | max(31ms, 40.2ms) = 40.2ms | 450 × 40.2ms | **~18s** |
 
 **선행 연구 대비 차별점:**
 
@@ -307,21 +289,20 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 
 ---
 
-## 5. 이론적 실행시간 비교 종합
+## 5. 실행시간 비교 종합
 
-| 방법 | 이론 추론 시간 | vs Baseline (273.79s) | 비고 |
-|------|---------------|----------------------|------|
+| 방법 | 추론 시간 | vs Baseline (273.79s) | 비고 |
+|------|----------|----------------------|------|
 | Baseline (BF16 Unified Memory) | 273.79s | 1x | 실측 |
-| 방법 1 (동기 스왑, D2H 포함) | 116.51s | **2.35x** | 실측 |
-| 방법 1 (D2H 제거) | ~46s | **6.0x** | D2H만 제거 |
-| 방법 2 (청크 + D2H 제거) | ~35s | **7.8x** | Pinned + 2-8MB 청크 |
+| **방법 1 (동기 H2D + Free)** | **43.38s** | **6.31x** | **실측** |
+| 방법 2 (청크 전송) | ~34s | **8.1x** | Pinned + 2-8MB 청크 |
 | 방법 3 (모듈 단위) | N/A | — | VLM > 12GB, 불가 |
-| 방법 4 (비동기 2-Stream) | ~29s | **9.4x** | 비동기 오버랩 |
-| **방법 4 + 2 (비동기 + 청크)** | **~17s** | **16.1x** | **최선** |
+| 방법 4 (비동기 2-Stream) | ~24s | **11.4x** | 비동기 오버랩 |
+| **방법 4 + 2 (비동기 + 청크)** | **~18s** | **15.2x** | **최선** |
 | 이론 최적 (스왑 없음) | ~5s | 55x | 24GB+ GPU 필요 |
 
-> **현실적 목표**: 방법 4+2 (비동기 + 청크)로 **273.79s → ~17s**, 16배 가속.
-> 이론 최적(~5s) 대비 3.4배 차이는 PCIe Gen3 대역폭의 구조적 한계.
+> **현실적 목표**: 방법 4+2 (비동기 + 청크)로 **273.79s → ~18s**, 15배 가속.
+> 이론 최적(~5s) 대비 3.6배 차이는 PCIe Gen3 대역폭의 구조적 한계.
 
 ---
 

@@ -217,7 +217,7 @@ def main():
         ("2.", "스왑 오버헤드 분석"),
         ("3.", "Demand Layering 적용 결과"),
         ("4.", "스왑 방법론 비교 (1~4)"),
-        ("5.", "이론적 실행시간 비교 종합"),
+        ("5.", "실행시간 비교 종합"),
         ("6.", "WSL2 환경 오버헤드"),
     ]
     for i, (num, title) in enumerate(toc_items):
@@ -323,7 +323,7 @@ def main():
     slide = prs.slides.add_slide(layout_basic)
     slide.placeholders[0].text = "Vanilla Alpamayo (BF16, Unified Memory)"
     add_bullet_slide(slide, "Vanilla Alpamayo (BF16, Unified Memory)", [
-        "환경: RTX 3080 Ti 12GB, WSL2, PyTorch 2.8.0",
+        "환경: RTX 3080 Ti 12GB, WSL2, PyTorch 2.8.0+cu128",
         "**실행 결과: 273.79s** (이론 최적 ~5s 대비 **55배 느림**)",
         "모델 ~22GB > 12GB VRAM → Unified Memory로 CPU RAM 사용",
         "4KB~2MB 단위 on-demand 페이지 폴트 → PCIe 효율 저하",
@@ -397,7 +397,8 @@ def main():
         "DNN 추론 시 모델 파라미터를 레이어 단위로 로딩/실행",
         "**3-Stage Pipeline**: Read(SSD→staging) → Copy(staging→GPU) → Kernel",
         "원 논문: iGPU + NVMe SSD 환경 (통합 메모리)",
-        "본 연구: dGPU + CPU RAM → Sequential Architecture (파이프라이닝 없음)",
+        "본 연구: dGPU + CPU RAM → Sequential (H2D→Execute→Free)",
+        "D2H 불필요: CPU에 원본 보유 → GPU free만 수행",
     ])
 
     # 슬라이드: 실험 결과
@@ -405,12 +406,12 @@ def main():
     slide.placeholders[0].text = "Demand Layering 실험 결과"
     table_data = [
         ["항목", "값"],
-        ["추론 시간", "116.51s"],
+        ["추론 시간", "43.38s"],
         ["Peak VRAM", "11.03 GB"],
         ["GPU 상주", "9.86 GB"],
-        ["H2D 전송", "450회, 총 28.9s (avg 64.23 ms/layer)"],
-        ["D2H 전송", "450회, 총 70.5s (avg 156.72 ms/layer)"],
-        ["vs Baseline (273.79s)", "2.35x 빠름"],
+        ["H2D 전송", "450회, 총 24.23s (avg 53.83 ms)"],
+        ["GPU Free", "450회, 총 1.05s (avg 2.32 ms)"],
+        ["vs Baseline (273.79s)", "6.31x 빠름"],
     ]
     add_table(slide, table_data,
               left=Inches(0.5), top=Inches(1.2), width=Inches(6.5), height=Inches(4.5),
@@ -421,8 +422,9 @@ def main():
                  "구현 방식:\n"
                  "- VLM 36개 레이어 중 30개 오프로드\n"
                  "- 6개는 GPU 상주\n"
-                 "- forward hook으로 동적 로드/언로드\n\n"
-                 "VLM 30 레이어 × 15 passes\n= 450 H2D + 450 D2H",
+                 "- forward hook: H2D → Execute → Free\n"
+                 "- D2H 제거: CPU 원본 참조 복원\n\n"
+                 "VLM 30 레이어 × 15 passes\n= 450 H2D + 450 Free",
                  font_size=14, color=GRAY)
 
     # 슬라이드: 한계 분석
@@ -431,24 +433,24 @@ def main():
 
     table_data = [
         ["구성 요소", "시간", "비율"],
-        ["H2D 전송", "28.9s", "24.8%"],
-        ["D2H 전송", "70.5s", "60.5%"],
-        ["계산", "~17.1s", "14.7%"],
-        ["합계", "116.51s", "100%"],
+        ["H2D 전송", "24.23s", "55.9%"],
+        ["계산", "~18.1s", "41.7%"],
+        ["GPU Free", "1.05s", "2.4%"],
+        ["합계", "43.38s", "100%"],
     ]
     add_table(slide, table_data,
               left=Inches(0.5), top=Inches(1.2), width=Inches(5.5), height=Inches(3.0),
               col_widths=[Inches(2.0), Inches(1.5), Inches(2.0)], font_size=13, header_font_size=14)
 
     add_text_box(slide, Inches(6.3), Inches(1.3), Inches(6.0), Inches(4.5),
-                 "핵심 문제:\n\n"
-                 "1. 추론 시간의 85%가 데이터 전송\n"
-                 "   (H2D 28.9s + D2H 70.5s = 99.4s)\n\n"
-                 "2. D2H가 H2D보다 2.4x 느림\n"
-                 "   (156.72ms vs 64.23ms)\n\n"
-                 "3. D2H는 불필요!\n"
-                 "   CPU에 원본 보유 → GPU free만 하면 됨\n"
-                 "   → 70.5s (추론의 60%) 완전 제거 가능",
+                 "핵심 관찰:\n\n"
+                 "1. H2D가 추론 시간의 56% — PCIe 병목\n\n"
+                 "2. GPU Free는 2.4%로 무시 가능\n"
+                 "   (avg 2.32ms, D2H 대비 67배 빠름)\n\n"
+                 "3. 동기식 전송 → 비동기 오버랩으로\n"
+                 "   H2D 24.2s를 계산(18.1s)에 은닉 가능\n\n"
+                 "4. Per-layer: H2D 54ms + Compute 40ms\n"
+                 "   + Free 2ms = ~96ms",
                  font_size=15, color=DARK)
 
     # ═══════════════════════════════════════════
@@ -461,11 +463,11 @@ def main():
     slide = prs.slides.add_slide(layout_basic)
     slide.placeholders[0].text = "방법 1: 레이어 단위 동기 스왑"
     add_bullet_slide(slide, "방법 1: 레이어 단위 동기 스왑", [
-        "개별 Transformer 레이어를 forward hook으로 동기식 GPU↔CPU 이동",
-        "레이어당: H2D 64ms → Compute 37ms → D2H 157ms (총 ~258ms)",
-        "**현재 구현 (D2H 포함): 116.51s** (실측)",
-        "**D2H 제거 시: ~46s** (H2D 28.9s + compute 17.1s)",
-        "구현 완료: research/06-demand-layering-impl/",
+        "개별 Transformer 레이어를 forward hook으로 H2D → Execute → Free",
+        "레이어당: H2D 54ms → Compute 40ms → Free 2ms (총 ~96ms)",
+        "**실측: 43.38s** (vs Baseline 273.79s → **6.31x 가속**)",
+        "D2H 불필요: CPU 원본 참조 복원 + GPU 메모리 해제",
+        "구현 완료: research/07-demand-layering-no-d2h/",
     ])
 
     # 슬라이드: 방법 2
@@ -484,7 +486,7 @@ def main():
 
     add_text_box(slide, Inches(0.5), Inches(4.5), Inches(12.0), Inches(2.0),
                  "Pinned memory + 2-8MB 청크 → 단일 전송 대비 1.6x 대역폭 향상\n"
-                 "이론 시간: 28.9s / 1.6 ≈ 18s + compute 17.1s ≈ ~35s",
+                 "이론 시간: 24.23s / 1.6 ≈ 15s + compute 18.1s + free 1.0s ≈ ~34s",
                  font_size=16, bold=True, color=ACCENT)
 
     # 슬라이드: 방법 3
@@ -517,21 +519,19 @@ def main():
     slide = prs.slides.add_slide(layout_basic)
     slide.placeholders[0].text = "4.5 방법 4: 비동기 2-Stream 파이프라인"
     add_bullet_slide(slide, "4.5 방법 4: 비동기 2-Stream 파이프라인", [
-        "**핵심 통찰: D2H는 불필요** — CPU에 원본 보유, GPU free만 수행",
-        "2개 CUDA 스트림으로 계산과 H2D prefetch를 비동기 오버랩",
+        "방법 1의 H2D(54ms)와 Compute(40ms)를 비동기 오버랩",
+        "2개 CUDA 스트림으로 계산과 H2D prefetch를 겹침",
         "Compute Stream: 현재 레이어 forward pass",
         "H2D Stream: 다음 레이어 prefetch + 이전 레이어 free",
-    ], sub_bullets={
-        0: ["현재 D2H 70.5s → 0s (추론 시간의 60% 절감)"],
-    })
+    ])
 
     # 슬라이드: 방법 4 이론 시간
     slide = prs.slides.add_slide(layout_basic)
     slide.placeholders[0].text = "방법 4: 이론적 성능 분석"
     table_data = [
         ["시나리오", "Per-layer", "450 layers", "총 시간"],
-        ["기본 비동기 (Pageable)", "max(64ms, 37ms) = 64ms", "450 × 64ms", "~29s"],
-        ["+ Chunked (12.4 GB/s)", "max(31ms, 37ms) = 37ms", "450 × 37ms", "~17s"],
+        ["기본 비동기 (Pageable)", "max(54ms, 40ms) = 54ms", "450 × 54ms", "~24s"],
+        ["+ Chunked (12.4 GB/s)", "max(31ms, 40ms) = 40ms", "450 × 40ms", "~18s"],
     ]
     add_table(slide, table_data,
               left=Inches(0.5), top=Inches(1.2), width=Inches(12.0), height=Inches(2.2),
@@ -558,16 +558,15 @@ def main():
 
     # 슬라이드: 종합 테이블
     slide = prs.slides.add_slide(layout_basic)
-    slide.placeholders[0].text = "이론적 실행시간 비교 종합"
+    slide.placeholders[0].text = "실행시간 비교 종합"
     table_data = [
-        ["방법", "이론 추론 시간", "vs Baseline", "비고"],
+        ["방법", "추론 시간", "vs Baseline", "비고"],
         ["Baseline (BF16 Unified Memory)", "273.79s", "1x", "실측"],
-        ["방법 1 (동기 스왑, D2H 포함)", "116.51s", "2.35x", "실측"],
-        ["방법 1 (D2H 제거)", "~46s", "6.0x", ""],
-        ["방법 2 (청크 + D2H 제거)", "~35s", "7.8x", ""],
+        ["방법 1 (동기 H2D + Free)", "43.38s", "6.31x", "실측"],
+        ["방법 2 (청크 전송)", "~34s", "8.1x", ""],
         ["방법 3 (모듈 단위)", "N/A", "—", "VLM>12GB, 불가"],
-        ["방법 4 (비동기 2-Stream)", "~29s", "9.4x", ""],
-        ["방법 4 + 2 (비동기 + 청크)", "~17s", "16.1x", "최선"],
+        ["방법 4 (비동기 2-Stream)", "~24s", "11.4x", ""],
+        ["방법 4 + 2 (비동기 + 청크)", "~18s", "15.2x", "최선"],
         ["이론 최적 (스왑 없음)", "~5s", "55x", "24GB+ GPU"],
     ]
     add_table(slide, table_data,
@@ -579,8 +578,8 @@ def main():
     slide = prs.slides.add_slide(layout_basic)
     slide.placeholders[0].text = "현실적 목표와 한계"
     add_bullet_slide(slide, "현실적 목표와 한계", [
-        "**현실적 목표**: 방법 4+2로 273.79s → ~17s (**16배 가속**)",
-        "이론 최적(~5s) 대비 3.4배 차이는 PCIe Gen3의 구조적 한계",
+        "**현실적 목표**: 방법 4+2로 273.79s → ~18s (**15배 가속**)",
+        "이론 최적(~5s) 대비 3.6배 차이는 PCIe Gen3의 구조적 한계",
         "**격차 해소 방법**:",
     ], sub_bullets={
         2: [
