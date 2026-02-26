@@ -1,7 +1,52 @@
 # 학습 정보 정리
 
 > 작업 중 질의응답을 통해 습득한 지식과 정보를 정리하는 문서입니다.
-> 마지막 업데이트: 2026-02-25
+> 마지막 업데이트: 2026-02-26
+
+---
+
+## PCIe 양방향 동시 전송 특성
+
+### Full-Duplex 이론 vs 실제
+- PCIe는 물리적으로 full-duplex (TX/RX 별도 배선)
+- PCIe Gen3 x16 이론: 각 방향 ~15.75 GB/s, 양방향 합계 ~31.5 GB/s
+- **실제 양방향 동시 전송 시 상당한 성능 저하 발생**
+
+### 실측 데이터
+| 환경 | 단방향 H2D | 단방향 D2H | 양방향 H2D | 양방향 D2H | H2D 감소율 |
+|------|-----------|-----------|-----------|-----------|-----------|
+| PCIe 3.0 RTX 3080 | ~12 GB/s | ~12 GB/s | ~9.45 GB/s | ~9.45 GB/s | -21% |
+| PCIe 4.0 A100 (사례1) | ~24.8 GB/s | ~25.9 GB/s | ~11 GB/s | ~24.2 GB/s | **-56%** |
+
+### 비대칭 원인
+- PCIe root complex arbitration이 읽기(D2H)를 쓰기(H2D)보다 우선
+- CPU 메모리 컨트롤러 내부 버스 경합
+- CUDA 드라이버 스케줄링 정책, IOMMU 오버헤드
+
+### CUDA Multi-Stream 동시 실행
+- Compute Capability >= 2.0 + asyncEngineCount >= 1이면 compute + H2D 오버랩 가능
+- asyncEngineCount > 1이면 H2D + D2H + compute 3-way 오버랩도 가능
+- **반드시 pinned memory 사용 필요** (pageable → async 불가)
+- 현대 GPU(Kepler 이후)는 2개 이상 DMA copy engine 보유
+
+> **참고**: 파라미터 오프로딩 추론에서는 D2H가 불필요하다.
+> CPU에 파라미터 원본이 유지되므로, 사용 완료된 레이어는 GPU free만 하면 됨.
+> 따라서 2-stream(compute + H2D)만으로 충분하다.
+
+## 레이어 오프로딩 관련 주요 시스템/연구 (2025년 기준)
+
+| 시스템 | 비동기 H2D | D2H 사용 | 특징 |
+|--------|-----------|---------|------|
+| DeepSpeed ZeRO-Inference | O | 불필요 (파라미터 추론) | 다중 GPU PCIe 집합 대역폭 |
+| FlexGen | O | O (KV Cache/Activation) | LP 기반 최적 텐서 배치 |
+| HF Accelerate | 최근 도입 | GPU free 사용 | Hook 기반, 범용 프레임워크 |
+| PIPO (2025) | O | O (KV Cache saving) | 세밀한 4종 태스크 파이프라인 |
+| NEO (MLSys 2025) | O | O (KV Cache) | KV cache + attention 오프로딩 |
+| vLLM | O | O (KV Cache) | PagedAttention, 서빙 최적화 |
+| llama.cpp | X (정적 배치) | X | mmap, MoE 특화 최적화 |
+
+> **참고**: 파라미터 오프로딩 추론에서 D2H는 불필요 (CPU에 원본 보유).
+> D2H가 필요한 경우: KV Cache 보존, Activation 저장(학습), 체크포인트 등.
 
 ---
 

@@ -215,10 +215,11 @@ def main():
     toc_items = [
         ("1.", "Alpamayo-R1 VRAM 사용량 분석"),
         ("2.", "스왑 오버헤드 분석"),
-        ("3.", "Demand Layering 적용 결과"),
-        ("4.", "스왑 방법론 비교 (1~4)"),
-        ("5.", "실행시간 비교 종합"),
-        ("6.", "WSL2 환경 오버헤드"),
+        ("3.", "기존 오프로딩 프레임워크의 한계"),
+        ("4.", "Demand Layering 적용 결과"),
+        ("5.", "스왑 방법론 비교 (1~4)"),
+        ("6.", "실행시간 비교 종합"),
+        ("7.", "WSL2 환경 오버헤드"),
     ]
     for i, (num, title) in enumerate(toc_items):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
@@ -385,10 +386,53 @@ def main():
                  font_size=15, color=DARK)
 
     # ═══════════════════════════════════════════
-    # 섹션 3: Demand Layering
+    # 섹션 3: 기존 오프로딩 프레임워크의 한계
     # ═══════════════════════════════════════════
     slide = prs.slides.add_slide(layout_section)
-    slide.placeholders[0].text = "3. Demand Layering 적용 결과"
+    slide.placeholders[0].text = "3. 기존 오프로딩 프레임워크의 한계"
+
+    # 슬라이드: device_map="auto"
+    slide = prs.slides.add_slide(layout_basic)
+    slide.placeholders[0].text = "device_map=\"auto\" (HuggingFace Accelerate)"
+    add_bullet_slide(slide, "device_map=\"auto\" (HuggingFace Accelerate)", [
+        "VRAM 부족 시 표준 해결책: **device_map=\"auto\"**",
+        "VRAM에 들어가는 레이어는 GPU, 초과분은 CPU/Disk에 배치",
+        "**실험 결과: 추론 실패** (CUDA device-side assert)",
+        "**원인**: fuse_traj_tokens()의 masked_scatter가 디바이스 분산과 충돌",
+    ], sub_bullets={
+        2: ["VLM 레이어 0-16 → GPU (4.49B, 40.6%)",
+            "VLM 레이어 17-35 + LM Head + Expert → CPU (6.58B, 59.4%)"],
+    })
+
+    # 슬라이드: 커스텀 구현 필요성
+    slide = prs.slides.add_slide(layout_basic)
+    slide.placeholders[0].text = "커스텀 오프로딩 구현이 필요한 이유"
+
+    table_data = [
+        ["문제", "설명"],
+        ["fuse_traj_tokens() 비호환", "masked_scatter가 디바이스 분산과 충돌"],
+        ["KV Cache 공유", "Expert가 VLM의 past_key_values를 직접 참조"],
+        ["generate() 내부 가정", "모든 모듈이 동일 디바이스에 있다고 가정"],
+    ]
+    add_table(slide, table_data,
+              left=Inches(0.5), top=Inches(1.2), width=Inches(12.0), height=Inches(2.8),
+              col_widths=[Inches(4.0), Inches(8.0)], font_size=13, header_font_size=14)
+
+    add_text_box(slide, Inches(0.5), Inches(4.5), Inches(12.0), Inches(2.0),
+                 "결론: 기존 프레임워크(device_map, Accelerate)의 자동 오프로딩은\n"
+                 "Alpamayo에서 동작하지 않음 → 레이어 단위 커스텀 오프로딩 구현 필수",
+                 font_size=16, bold=True, color=ACCENT)
+
+    # device_map 분석 시각화
+    dm_img = os.path.join(FIGURES_DIR, "02_device_map_analysis.png")
+    if os.path.exists(dm_img):
+        slide.shapes.add_picture(dm_img, Inches(8.5), Inches(1.2), width=Inches(4.0))
+
+    # ═══════════════════════════════════════════
+    # 섹션 4: Demand Layering
+    # ═══════════════════════════════════════════
+    slide = prs.slides.add_slide(layout_section)
+    slide.placeholders[0].text = "4. Demand Layering 적용 결과"
 
     # 슬라이드: 논문 소개
     slide = prs.slides.add_slide(layout_basic)
@@ -454,10 +498,10 @@ def main():
                  font_size=15, color=DARK)
 
     # ═══════════════════════════════════════════
-    # 섹션 4: 스왑 방법론 비교
+    # 섹션 5: 스왑 방법론 비교
     # ═══════════════════════════════════════════
     slide = prs.slides.add_slide(layout_section)
-    slide.placeholders[0].text = "4. 스왑 방법론 비교"
+    slide.placeholders[0].text = "5. 스왑 방법론 비교"
 
     # 슬라이드: 방법 1
     slide = prs.slides.add_slide(layout_basic)
@@ -491,8 +535,8 @@ def main():
 
     # 슬라이드: 방법 3
     slide = prs.slides.add_slide(layout_basic)
-    slide.placeholders[0].text = "4.3 방법 3: 모듈 단위 스왑 → 불가능"
-    add_bullet_slide(slide, "4.3 방법 3: 모듈 단위 스왑 → 불가능", [
+    slide.placeholders[0].text = "5.3 방법 3: 모듈 단위 스왑 → 불가능"
+    add_bullet_slide(slide, "5.3 방법 3: 모듈 단위 스왑 → 불가능", [
         "Vision / VLM / Expert를 모듈 통째로 스왑하는 방식",
         "**VLM 단독 15.17GB > 12GB VRAM** — 모듈 통째 로드 불가",
         "Vision Encoder (1.15GB) → 가능",
@@ -503,8 +547,8 @@ def main():
 
     # 슬라이드: 교수님 아이디어 (4.4)
     slide = prs.slides.add_slide(layout_basic)
-    slide.placeholders[0].text = "4.4 교수님 아이디어: 2-Stage 스와핑"
-    add_bullet_slide(slide, "4.4 교수님 아이디어: 2-Stage 스와핑", [
+    slide.placeholders[0].text = "5.4 교수님 아이디어: 2-Stage 스와핑"
+    add_bullet_slide(slide, "5.4 교수님 아이디어: 2-Stage 스와핑", [
         "**A. 모듈 단위 2-Stage → 불가능**",
         "**B. 레이어 단위 2-Stage → 유효**",
         "**결론**: 방법 1의 현재 구현이 이미 레이어 단위 2-Stage에 해당",
@@ -517,8 +561,8 @@ def main():
 
     # 슬라이드: 방법 4 (4.5)
     slide = prs.slides.add_slide(layout_basic)
-    slide.placeholders[0].text = "4.5 방법 4: 비동기 2-Stream 파이프라인"
-    add_bullet_slide(slide, "4.5 방법 4: 비동기 2-Stream 파이프라인", [
+    slide.placeholders[0].text = "5.5 방법 4: 비동기 2-Stream 파이프라인"
+    add_bullet_slide(slide, "5.5 방법 4: 비동기 2-Stream 파이프라인", [
         "방법 1의 H2D(54ms)와 Compute(40ms)를 비동기 오버랩",
         "2개 CUDA 스트림으로 계산과 H2D prefetch를 겹침",
         "Compute Stream: 현재 레이어 forward pass",
@@ -551,10 +595,10 @@ def main():
               col_widths=[Inches(3.5), Inches(1.5), Inches(4.0), Inches(3.0)], font_size=11, header_font_size=12)
 
     # ═══════════════════════════════════════════
-    # 섹션 5: 종합 비교
+    # 섹션 6: 종합 비교
     # ═══════════════════════════════════════════
     slide = prs.slides.add_slide(layout_section)
-    slide.placeholders[0].text = "5. 이론적 실행시간 비교 종합"
+    slide.placeholders[0].text = "6. 이론적 실행시간 비교 종합"
 
     # 슬라이드: 종합 테이블
     slide = prs.slides.add_slide(layout_basic)
@@ -590,7 +634,7 @@ def main():
     })
 
     # ═══════════════════════════════════════════
-    # 섹션 6: WSL2 오버헤드
+    # 섹션 7: WSL2 오버헤드
     # ═══════════════════════════════════════════
     slide = prs.slides.add_slide(layout_basic)
     slide.placeholders[0].text = "WSL2 환경 오버헤드"

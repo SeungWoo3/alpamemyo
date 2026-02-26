@@ -116,9 +116,58 @@ dummy 텐서로 VRAM을 선점하여 사용 가능 VRAM을 제한하는 방식�
 
 ---
 
-## 3. Demand Layering 적용 결과
+## 3. 기존 오프로딩 프레임워크의 한계
 
-### 3.1 Demand Layering 논문 (RTSS 2022)
+### 3.1 device_map="auto" (HuggingFace Accelerate)
+
+VRAM 부족 시 가장 먼저 시도하는 표준 방법은 HuggingFace Accelerate의 `device_map="auto"`이다.
+
+```python
+model = AutoModelForCausalLM.from_pretrained("model_name", device_map="auto")
+```
+
+**동작 방식:**
+1. 모델 로드 시 VRAM 용량 확인
+2. VRAM에 들어가는 레이어는 GPU에 배치
+3. 초과분은 CPU RAM에 배치 (그래도 부족하면 디스크)
+4. 추론 시 CPU에 있는 레이어를 실행 차례에 GPU로 이동 → 완료 후 CPU로 반환
+
+**실험 결과: 추론 실패**
+
+Accelerate가 Alpamayo-R1에 자동 배치한 결과:
+
+| 컴포넌트 | 배치 위치 |
+|----------|----------|
+| Vision Encoder + VLM 레이어 0-16 (17개) | GPU (4.49B, 40.6%) |
+| VLM 레이어 17-35 + LM Head + Expert 전체 | CPU/Disk (6.58B, 59.4%) |
+
+모델 로드는 성공 (VRAM 8.99GB), 그러나 **추론 시 CUDA device-side assert 발생**.
+
+**실패 원인 — `fuse_traj_tokens()`의 디바이스 불일치:**
+
+Alpamayo-R1의 `fuse_traj_tokens()` 메서드는 VLM 출력 텐서와 trajectory 토큰 테이블을 `masked_scatter`로 결합한다. 이 연산은 입력 텐서와 소스 텐서가 **동일한 디바이스**에 있어야 한다. `device_map="auto"`로 레이어가 GPU/CPU에 분산 배치되면 이 조건을 만족하지 못한다.
+
+### 3.2 수동 오프로딩 (max_memory 제약)
+
+`max_memory` 파라미터로 GPU 10GB + CPU 10GB + Disk 구성을 시도했으나, 동일한 이유로 **추론 실패**. 커스텀 토큰 처리 파이프라인이 Accelerate의 자동 디바이스 전환과 호환되지 않는다.
+
+### 3.3 커스텀 구현이 필요한 이유
+
+| 문제 | 설명 |
+|------|------|
+| `fuse_traj_tokens()` 비호환 | `masked_scatter`가 디바이스 분산과 충돌 |
+| KV Cache 공유 | Expert가 VLM의 `past_key_values`를 직접 참조 → 별도 디바이스 불가 |
+| `generate()` 내부 가정 | HuggingFace의 `generate()`는 모든 모듈이 동일 디바이스에 있다고 가정 |
+
+> **결론**: 기존 프레임워크(`device_map`, Accelerate)의 자동 오프로딩은 Alpamayo에서 동작하지 않는다. **레이어 단위 커스텀 오프로딩 구현이 필수적**이며, 이것이 본 연구의 출발점이다.
+
+![device_map 배치 분석](figures/02_device_map_analysis.png)
+
+---
+
+## 4. Demand Layering 적용 결과
+
+### 4.1 Demand Layering 논문 (RTSS 2022)
 
 RTSS 2022 논문 "Demand Layering for Real-Time DNN Inference with Minimized Memory Usage"는 DNN 추론 시 모델 파라미터를 레이어 단위로 로딩/실행하는 기법을 제안한다.
 
@@ -145,7 +194,7 @@ Layer i+2:                        [ Read_i+2  ][ Copy_i+2  ][ Kernel_i+2  ]
 
 > 파라미터 오프로딩 추론에서는 D2H(GPU→CPU 복사)가 불필요하다. CPU에 파라미터 원본이 보존되어 있으므로, 사용 완료된 레이어는 GPU 메모리를 해제(free)하기만 하면 된다.
 
-### 3.2 실험 결과
+### 4.2 실험 결과
 
 구현: `research/07-demand-layering-no-d2h/demand_layering_no_d2h.py`
 - VLM 36개 레이어 중 30개를 CPU로 오프로드, 6개는 GPU 상주
@@ -161,7 +210,7 @@ Layer i+2:                        [ Read_i+2  ][ Copy_i+2  ][ Kernel_i+2  ]
 | GPU Free | 450회, 총 1.05s (평균 2.32 ms/layer) |
 | vs Baseline (273.79s) | **6.31x 빠름** |
 
-### 3.3 시간 구성 분석
+### 4.3 시간 구성 분석
 
 추론 시간 43.38s의 구성:
 
@@ -182,7 +231,7 @@ GPU Free:   1.05s  (2.4%)
 
 ---
 
-## 4. 스왑 방법론 비교
+## 5. 스왑 방법론 비교
 
 ### 실행시간 산출 근거
 
@@ -192,7 +241,7 @@ GPU Free:   1.05s  (2.4%)
 - Per-layer compute (실측): ~40.2 ms (18.1s ÷ 450)
 - Per-layer Free (실측): 2.32 ms
 
-### 4.1 방법 1: 레이어 단위 동기 스왑 (Synchronous On-Demand)
+### 5.1 방법 1: 레이어 단위 동기 스왑 (Synchronous On-Demand)
 
 **개념:** 개별 Transformer 레이어를 forward hook으로 GPU에 로드 → 실행 → GPU 해제. CPU 원본은 유지되므로 D2H(GPU→CPU 복사)는 수행하지 않는다.
 
@@ -206,7 +255,7 @@ Layer N+1:                                   [H2D 54ms][Compute 40ms][Free 2ms]
 
 **구현 상태:** 완료 (`research/07-demand-layering-no-d2h/demand_layering_no_d2h.py`)
 
-### 4.2 방법 2: 최적 청크 전송 (2-8MB Chunked Transfer)
+### 5.2 방법 2: 최적 청크 전송 (2-8MB Chunked Transfer)
 
 **개념:** 레이어를 2-8MB 청크로 분할 + Pinned Memory로 PCIe 대역폭 극대화.
 
@@ -225,7 +274,7 @@ Layer N+1:                                   [H2D 54ms][Compute 40ms][Free 2ms]
 
 **구현 상태:** 벤치마크 완료 (`research/03-swap-optimization/`)
 
-### 4.3 방법 3: 모듈 단위 스왑 → 불가능
+### 5.3 방법 3: 모듈 단위 스왑 → 불가능
 
 **개념:** Vision / VLM / Expert를 모듈 통째로 스왑.
 
@@ -239,7 +288,7 @@ Expert:          4.56 GB  → ✓  GPU 적재 가능
 
 **VLM 단독 15.17GB > 12GB VRAM** — 순수 모듈 단위 스왑은 불가능.
 
-### 4.4 교수님 아이디어: 2-Stage 스와핑 분석
+### 5.4 교수님 아이디어: 2-Stage 스와핑 분석
 
 교수님이 제안하신 비전-프리필과 디코딩을 2-stage로 나누어 VRAM을 절감하는 아이디어에 대한 분석:
 
@@ -259,7 +308,7 @@ Expert:          4.56 GB  → ✓  GPU 적재 가능
 > **결론**: 레이어 단위 2-stage는 유효하며, **방법 1의 현재 구현이 이미 이 구조에 해당**한다.
 > (VLM은 레이어별 스왑, Expert는 GPU 상주로 처리)
 
-### 4.5 방법 4: 비동기 2-Stream 파이프라인 (Prefetch + Free)
+### 5.5 방법 4: 비동기 2-Stream 파이프라인 (Prefetch + Free)
 
 **개념:** 2개의 CUDA 스트림으로 계산과 H2D prefetch를 비동기 오버랩. 방법 1이 동기식(H2D → Compute → Free 순차)인 반면, 방법 4는 다음 레이어의 H2D를 현재 레이어의 Compute와 겹친다.
 
@@ -289,7 +338,7 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 
 ---
 
-## 5. 실행시간 비교 종합
+## 6. 실행시간 비교 종합
 
 | 방법 | 추론 시간 | vs Baseline (273.79s) | 비고 |
 |------|----------|----------------------|------|
@@ -306,11 +355,11 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 
 ---
 
-## 6. WSL2 환경 오버헤드
+## 7. WSL2 환경 오버헤드
 
 현재 실험 환경은 네이티브 Linux가 아닌 WSL2 위에서 동작한다.
 
-### 6.1 측정된 WSL2 오버헤드
+### 7.1 측정된 WSL2 오버헤드
 
 | 항목 | WSL2 (현재) | 네이티브 Linux (예상) | 차이 |
 |------|------------|---------------------|------|
@@ -320,7 +369,7 @@ H2D Stream:     [Layer N+1 로드]   [Layer N+2 로드]   [Layer N+3 로드]
 | per-transfer 고정 오버헤드 | 0.36 ms | ~0.05 ms | **7배** |
 | cudaMemPrefetchAsync(CPU) | **미지원** | 지원 | — |
 
-### 6.2 의미
+### 7.2 의미
 
 - WSL2의 Pinned memory 대역폭은 네이티브와 유사 → **Pinned 기반 구현에서는 영향 적음**
 - 방법 4 (비동기 파이프라인)는 Pinned memory를 사용하므로 WSL2 오버헤드 영향 최소
