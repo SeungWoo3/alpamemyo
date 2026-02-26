@@ -1,0 +1,32 @@
+[
+  {
+    "vram_limit_gb": 11,
+    "dummy_size_gb": 0.7,
+    "available_vram_gb": 11.3,
+    "model_load_time": 27.2,
+    "inference_time": 5.29,
+    "peak_vram_gb": 9.59,
+    "cot_preview": "[['Keep lane to continue driving since no critical agent needs attention.']]",
+    "error": null
+  },
+  {
+    "vram_limit_gb": 9,
+    "dummy_size_gb": 2.7,
+    "available_vram_gb": 9.29,
+    "model_load_time": 18.21,
+    "inference_time": 111.36,
+    "peak_vram_gb": 11.58,
+    "cot_preview": "[['Keep lane to continue driving since no critical agent needs attention.']]",
+    "error": null
+  },
+  {
+    "vram_limit_gb": 7,
+    "dummy_size_gb": 4.7,
+    "available_vram_gb": 7.29,
+    "model_load_time": 18.71,
+    "inference_time": 4.76,
+    "peak_vram_gb": 13.59,
+    "cot_preview": "[['Keep lane to continue driving since no critical agent needs attention.']]",
+    "error": null
+  }
+]
