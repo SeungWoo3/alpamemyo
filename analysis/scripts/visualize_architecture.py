@@ -1,411 +1,567 @@
 """
 visualize_architecture.py
 
-Architecture block diagram for Alpamayo-R1-10B.
+Comprehensive architecture block diagram for Alpamayo-R1-10B.
 
-Component summary
------------------
-Vision Encoder : PatchEmbed (patch=16) + 27 ViT blocks (hidden=1152) + PatchMerger (→4096)
-VLM            : Qwen3-VL-8B  hidden=4096, 36 Transformer layers, GQA
-Expert Decoder : hidden=2048, 16 heads (cross-attention conditioning)
-Diffusion      : 10 Euler steps, Flow Matching
-Action Space   : 64 waypoints × 2 dims  →  Unicycle Model  →  (64,3) trajectory
+Layout: vertical flow, top to bottom
+  1. Image Input
+  2. Vision Encoder  (SigLIP-400M-based)
+       PatchEmbed: Conv3d(3 to 1152, k=2x16x16)
+       27x VisionBlock: LN -> Attn(16h, 1152) -> MLP(1152->4304->1152)
+       PatchMerger: 2x2 merge + MLP(4608->4096)
+  3. VLM  (Qwen3-VL-8B)
+       36 Transformer layers, hidden=4096, 32 heads / 8 KV (GQA)
+       intermediate=12288
+       Input: [vision tokens + text/history tokens]
+       Output: KV cache for Expert conditioning
+  4. Expert Decoder  (~2B)
+       16 Transformer layers, hidden=2048, 16 heads, intermediate=8256
+       Uses VLM KV cache as context
+  5. Diffusion Head
+       action_in_proj: FourierEncode + MLP -> (B, 64, 2048)
+       10 Euler steps through Expert Decoder
+       action_out_proj: Linear(2048->2) -> velocity field
+  6. Action Space / Trajectory Output
+       (accel, curvature) -> Unicycle kinematics -> (x, y, yaw)
+       64 waypoints, dt=0.1s
+
+Saved to: /home/seungwoo/workspace/analysis/figures/architecture_overview.png
 """
 
+import os
+import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
-import numpy as np
 
 matplotlib.rcParams.update({
     "font.family": "DejaVu Sans",
-    "font.size": 10,
     "figure.dpi": 150,
 })
 
-# ── Colour palette (one per major pipeline stage) ───────────────────────────
-COL = {
-    "input"   : "#B3E5FC",   # light blue
-    "vision"  : "#CE93D8",   # light purple
-    "text"    : "#80CBC4",   # teal
-    "vlm"     : "#FFB74D",   # amber
-    "expert"  : "#EF9A9A",   # light red
-    "diffusion": "#A5D6A7",  # light green
-    "action"  : "#FFF176",   # yellow
-    "traj"    : "#F48FB1",   # pink
-    "arrow"   : "#455A64",   # dark blue-grey
-    "bg"      : "#FAFAFA",
-    "panel"   : "#ECEFF1",
-}
 
-def _darken(hex_color: str, amount: float = 0.3) -> str:
-    """Return a darkened version of a hex colour."""
+# ---------------------------------------------------------------------------
+# Colour palette
+# ---------------------------------------------------------------------------
+def _darken(hex_color: str, amount: float = 0.30) -> str:
+    """Return a darkened version of a hex colour string."""
     hex_color = hex_color.lstrip("#")
-    r, g, b = (int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    r = int(r * (1 - amount))
-    g = int(g * (1 - amount))
-    b = int(b * (1 - amount))
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    r = max(0, int(r * (1 - amount)))
+    g = max(0, int(g * (1 - amount)))
+    b = max(0, int(b * (1 - amount)))
     return f"#{r:02x}{g:02x}{b:02x}"
 
-EDGE_COL = {k: _darken(v, 0.35) for k, v in COL.items()
-            if k not in ("arrow", "bg", "panel")}
+
+C = {
+    "bg"       : "#F5F7FA",
+    "input"    : "#B3D9FF",   # light blue   — I/O tensors
+    "vision"   : "#D7BDE2",   # lavender     — Vision Encoder
+    "vlm"      : "#FAD7A0",   # peach        — VLM
+    "expert"   : "#A9DFBF",   # light green  — Expert Decoder
+    "diffusion": "#FADBD8",   # light pink   — Diffusion Head
+    "action"   : "#AED6F1",   # sky blue     — Action space
+    "traj"     : "#F9E79F",   # yellow       — Trajectory output
+    "arrow"    : "#2C3E50",   # dark slate
+    "subblock" : "#FDFEFE",   # near-white sub-block fill
+    "math"     : "#EBF5FB",
+}
 
 
-# ── Drawing primitives ──────────────────────────────────────────────────────
-
-def draw_block(ax, x, y, w, h,
-               label: str, sublabel: str = "",
-               color: str = "#BBDEFB", edge_color: str = "#1565C0",
-               fontsize: int = 10, sublabel_fontsize: int = 8.5,
-               radius: float = 0.12, zorder: int = 3):
-    """Draw a rounded rectangle with a two-line label."""
-    box = FancyBboxPatch(
-        (x - w / 2, y - h / 2), w, h,
+# ---------------------------------------------------------------------------
+# Drawing primitives
+# ---------------------------------------------------------------------------
+def _block(ax, cx, cy, w, h,
+           title, detail="",
+           color=C["input"], lw=1.8,
+           title_fs=10, detail_fs=8.2,
+           zorder=3, radius=0.18):
+    """Rounded rectangle with a title and optional detail text."""
+    ec = _darken(color)
+    patch = FancyBboxPatch(
+        (cx - w / 2, cy - h / 2), w, h,
         boxstyle=f"round,pad={radius}",
-        facecolor=color, edgecolor=edge_color,
-        linewidth=1.6, zorder=zorder,
+        facecolor=color, edgecolor=ec, linewidth=lw, zorder=zorder,
     )
-    ax.add_patch(box)
-
-    cy = y if not sublabel else y + h * 0.14
-    ax.text(x, cy, label,
-            ha="center", va="center",
-            fontsize=fontsize, fontweight="bold",
-            zorder=zorder + 1)
-    if sublabel:
-        ax.text(x, y - h * 0.22, sublabel,
+    ax.add_patch(patch)
+    if detail:
+        ax.text(cx, cy + h * 0.13, title,
                 ha="center", va="center",
-                fontsize=sublabel_fontsize, color="#424242",
+                fontsize=title_fs, fontweight="bold", zorder=zorder + 1)
+        ax.text(cx, cy - h * 0.20, detail,
+                ha="center", va="center",
+                fontsize=detail_fs, color="#424242",
+                linespacing=1.35, zorder=zorder + 1)
+    else:
+        ax.text(cx, cy, title,
+                ha="center", va="center",
+                fontsize=title_fs, fontweight="bold", zorder=zorder + 1)
+
+
+def _varrow(ax, x, y0, y1, label="", label_x_offset=0.18,
+            color=C["arrow"], lw=1.6, mutation_scale=14, zorder=2):
+    """Vertical downward arrow with optional side label."""
+    ax.annotate("", xy=(x, y1), xytext=(x, y0),
+                arrowprops=dict(
+                    arrowstyle="-|>", color=color, lw=lw,
+                    mutation_scale=mutation_scale,
+                    connectionstyle="arc3,rad=0.0",
+                ),
+                zorder=zorder)
+    if label:
+        my = (y0 + y1) / 2
+        ax.text(x + label_x_offset, my, label,
+                ha="left", va="center",
+                fontsize=7.8, color="#37474F",
+                bbox=dict(fc="white", ec="none", alpha=0.75, pad=1.5),
                 zorder=zorder + 1)
 
 
-def draw_arrow(ax, x0, y0, x1, y1,
-               label: str = "", label_side: str = "right",
-               color: str = COL["arrow"], lw: float = 1.8,
-               arrowstyle: str = "-|>", mutation_scale: float = 16):
-    """Draw a directed arrow between two points."""
-    ax.annotate(
-        "", xy=(x1, y1), xytext=(x0, y0),
-        arrowprops=dict(
-            arrowstyle=arrowstyle,
-            color=color, lw=lw,
-            mutation_scale=mutation_scale,
-            connectionstyle="arc3,rad=0.0",
-        ),
-        zorder=2,
-    )
+def _harrow(ax, x0, x1, y, label="", label_y_offset=0.12,
+            color=C["arrow"], lw=1.6, mutation_scale=14, zorder=2):
+    """Horizontal arrow with optional label above."""
+    ax.annotate("", xy=(x1, y), xytext=(x0, y),
+                arrowprops=dict(
+                    arrowstyle="-|>", color=color, lw=lw,
+                    mutation_scale=mutation_scale,
+                    connectionstyle="arc3,rad=0.0",
+                ),
+                zorder=zorder)
     if label:
-        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
-        offset = (0.18, 0) if label_side == "right" else (-0.18, 0)
-        if abs(y1 - y0) < 0.1:   # horizontal arrow → label above
-            offset = (0, 0.18)
-        ax.text(mx + offset[0], my + offset[1], label,
-                ha="center", va="center",
-                fontsize=8, color="#37474F",
-                bbox=dict(fc="white", ec="none", alpha=0.75, pad=1.5))
+        mx = (x0 + x1) / 2
+        ax.text(mx, y + label_y_offset, label,
+                ha="center", va="bottom",
+                fontsize=7.8, color="#37474F",
+                bbox=dict(fc="white", ec="none", alpha=0.75, pad=1.5),
+                zorder=zorder + 1)
 
 
-def draw_bracket_group(ax, x_left, x_right, y_top, y_bot,
-                        label: str, color: str = "#90A4AE"):
-    """Draw a vertical bracket grouping several blocks."""
-    pad = 0.15
-    ax.annotate(
-        "", xy=(x_left - pad, y_bot), xytext=(x_left - pad, y_top),
-        arrowprops=dict(arrowstyle="-", color=color, lw=1.2,
-                        connectionstyle="arc3,rad=0"),
-    )
-    ax.text(x_left - pad - 0.08, (y_top + y_bot) / 2, label,
-            ha="right", va="center", fontsize=8, color=color,
-            rotation=90, fontweight="bold")
+def _param_badge(ax, cx, cy, text, zorder=6):
+    """Small dark badge for parameter count annotation."""
+    ax.text(cx, cy, text,
+            ha="center", va="center",
+            fontsize=7.5, color="white", fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.35",
+                      fc="#37474F", ec="#263238",
+                      linewidth=1.0),
+            zorder=zorder)
 
 
-# ── Layout constants ────────────────────────────────────────────────────────
-#
-#  The diagram is laid out on a [0, 18] × [0, 12] canvas.
-#  Main data flow runs left → right across three rows:
-#
-#  Row A (y≈9.0): Image Input → Vision Encoder sub-blocks → Vision Tokens
-#  Row B (y≈5.5): Text Input  → Tokenizer → Text Tokens
-#  Row C (y≈7.5): [Vision+Text Tokens] → VLM → Expert Tokens
-#  Row D (y≈3.5): Noise → Diffusion Loop (with Expert conditioning)
-#  Row E (y≈1.5): Actions → Unicycle → Trajectory
-#
-
+# ---------------------------------------------------------------------------
+# Figure builder
+# ---------------------------------------------------------------------------
 def build_figure() -> plt.Figure:
-    fig, ax = plt.subplots(figsize=(18, 12))
-    fig.patch.set_facecolor(COL["bg"])
-    ax.set_facecolor(COL["bg"])
-    ax.set_xlim(0, 18)
-    ax.set_ylim(0, 12)
+    """
+    Vertical flow diagram.
+
+    Canvas: x in [0, 16], y in [0, 20]  (figure 16 x 20 inches)
+    Flow:  y decreases downward  (top = 19.5, bottom = 0.5)
+
+    Vertical positions (y centre of each major block):
+      Image Input        : 19.0
+      Vision Encoder     : 16.5  (group: 14.5 to 18.5)
+      VLM                : 12.5  (group: 10.5 to 14.0)
+      Expert Decoder     :  8.0  (group:  6.5 to  9.5)
+      Diffusion Head     :  4.5  (group:  3.0 to  6.0)
+      Action / Traj      :  1.5
+    """
+    fig, ax = plt.subplots(figsize=(16, 20))
+    fig.patch.set_facecolor(C["bg"])
+    ax.set_facecolor(C["bg"])
+    ax.set_xlim(0, 16)
+    ax.set_ylim(0, 20)
     ax.axis("off")
 
-    # ── Title ──────────────────────────────────────────────────────────────
-    ax.text(
-        9, 11.6,
-        "Alpamayo-R1-10B  —  Architecture Overview",
-        ha="center", va="center",
-        fontsize=17, fontweight="bold", color="#1A237E",
-    )
-    ax.text(
-        9, 11.2,
-        "Vision Encoder (27 ViT layers, hidden=1152)  ·  VLM Qwen3-VL-8B (36 layers, GQA)  ·  "
-        "Expert Decoder (hidden=2048)  ·  Flow Matching Diffusion (10 steps)",
-        ha="center", va="center",
-        fontsize=9.5, color="#546E7A",
-    )
+    CX = 8.0   # horizontal centre of main column
 
-    # ══════════════════════════════════════════════════════════════════════
-    # ROW A — Vision pipeline  (y = 9.2)
-    # ══════════════════════════════════════════════════════════════════════
-    Y_VIS = 9.2
+    # ============================================================
+    # Header
+    # ============================================================
+    ax.text(CX, 19.55,
+            "Alpamayo-R1-10B  —  Architecture Overview",
+            ha="center", va="center",
+            fontsize=16, fontweight="bold", color="#1A237E")
+    ax.text(CX, 19.15,
+            "Vision Encoder (SigLIP-400M)  |  VLM Qwen3-VL-8B  |  "
+            "Expert Decoder (~2B)  |  Flow Matching Diffusion",
+            ha="center", va="center",
+            fontsize=9.5, color="#546E7A")
 
-    # Image Input
-    draw_block(ax, 1.0, Y_VIS, 1.3, 0.75,
-               "Image Input", "H × W × 3",
-               color=COL["input"], edge_color=_darken(COL["input"]))
+    # ============================================================
+    # 0. Image Input
+    # ============================================================
+    Y_IMG = 18.3
+    _block(ax, CX, Y_IMG, 3.8, 0.65,
+           "Image Input",
+           "H x W x 3  (camera frames)",
+           color=C["input"], title_fs=10, detail_fs=8.5)
+
+    # ============================================================
+    # 1. Vision Encoder group  (y: 14.5 to 17.7)
+    # ============================================================
+    Y_VE_TOP  = 17.7
+    Y_VE_BOT  = 14.5
+
+    # Group background panel
+    group_bg = FancyBboxPatch(
+        (2.5, Y_VE_BOT - 0.10), 11.0, Y_VE_TOP - Y_VE_BOT + 0.20,
+        boxstyle="round,pad=0.06",
+        facecolor="#F3EBF9", edgecolor=_darken(C["vision"], 0.20),
+        linewidth=1.4, zorder=1, linestyle="--",
+    )
+    ax.add_patch(group_bg)
+    ax.text(2.65, Y_VE_TOP - 0.05,
+            "Vision Encoder  (SigLIP-400M-based,  ~427M params)",
+            ha="left", va="top",
+            fontsize=9, color=_darken(C["vision"]), fontstyle="italic")
 
     # PatchEmbed
-    draw_block(ax, 2.9, Y_VIS, 1.5, 0.75,
-               "PatchEmbed",  "patch=16\n1152-dim",
-               color=COL["vision"], edge_color=_darken(COL["vision"]))
+    Y_PE = 17.05
+    _block(ax, CX, Y_PE, 9.0, 0.80,
+           "PatchEmbed",
+           "Conv3d(3 -> 1152,  kernel 2x16x16,  stride 2x16x16)\n"
+           "Input frames -> spatial patch tokens  (B, N_patches, 1152)",
+           color=C["vision"], title_fs=10, detail_fs=8.0)
+    _param_badge(ax, CX + 4.8, Y_PE, "~10M")
 
-    # 27 ViT blocks
-    draw_block(ax, 5.1, Y_VIS, 2.2, 0.90,
-               "27 × ViT Block",
-               "hidden=1152, MHA\n~427M params",
-               color=COL["vision"], edge_color=_darken(COL["vision"]))
+    # 27x VisionBlock
+    Y_VB = 15.85
+    _block(ax, CX, Y_VB, 9.0, 1.50,
+           "27x  VisionBlock",
+           "LayerNorm  ->  Multi-Head Attention (16 heads, dim=1152)\n"
+           "->  LayerNorm  ->  MLP (1152 -> 4304 -> 1152,  SiLU)\n"
+           "RoPE positional encoding  |  hidden=1152",
+           color=C["vision"], title_fs=10.5, detail_fs=8.2)
+    _param_badge(ax, CX + 4.8, Y_VB, "~400M")
 
     # PatchMerger
-    draw_block(ax, 7.5, Y_VIS, 1.6, 0.75,
-               "PatchMerger",  "1152 → 4096",
-               color=COL["vision"], edge_color=_darken(COL["vision"]))
+    Y_PM = 14.85
+    _block(ax, CX, Y_PM, 9.0, 0.75,
+           "PatchMerger",
+           "2x2 spatial merge  ->  MLP (4608 -> 4096)  |  output: (B, N/4, 4096)",
+           color=C["vision"], title_fs=10, detail_fs=8.0)
+    _param_badge(ax, CX + 4.8, Y_PM, "~37M")
 
-    # Vision Tokens
-    draw_block(ax, 9.5, Y_VIS, 1.5, 0.75,
-               "Vision Tokens", "seq_len × 4096",
-               color=COL["input"], edge_color=_darken(COL["input"]))
+    # Internal arrows (within Vision Encoder)
+    _varrow(ax, CX, Y_PE + 0.40, Y_PE + 0.70,
+            label="(B, N, 1152)", label_x_offset=0.20, lw=1.4)
+    _varrow(ax, CX, Y_VB + 0.75, Y_PE - 0.40,
+            label="(B, N, 1152)", label_x_offset=0.20, lw=1.4)
+    _varrow(ax, CX, Y_PM + 0.38, Y_VB - 0.75,
+            label="(B, N, 1152)", label_x_offset=0.20, lw=1.4)
 
-    # Arrows — vision pipeline
-    draw_arrow(ax, 1.65, Y_VIS, 2.15, Y_VIS)
-    draw_arrow(ax, 3.65, Y_VIS, 4.0,  Y_VIS)
-    draw_arrow(ax, 6.2,  Y_VIS, 6.7,  Y_VIS)
-    draw_arrow(ax, 8.3,  Y_VIS, 8.75, Y_VIS)
+    # Arrow: Image Input -> PatchEmbed
+    _varrow(ax, CX, Y_IMG - 0.33, Y_PE + 0.40,
+            label="HxWx3", label_x_offset=0.20)
 
-    # Vision Encoder brace label
-    ax.annotate("", xy=(8.4, Y_VIS + 0.62), xytext=(2.1, Y_VIS + 0.62),
-                arrowprops=dict(arrowstyle="-", color=_darken(COL["vision"]),
-                                lw=1.0, linestyle="dashed"))
-    ax.text(5.25, Y_VIS + 0.76,
-            "Vision Encoder  (SigLIP-style)",
-            ha="center", va="center", fontsize=8.5,
-            color=_darken(COL["vision"]), fontstyle="italic")
+    # ============================================================
+    # 2. Text / History tokens (side input entering VLM)
+    # ============================================================
+    Y_TEXT = 13.5
+    _block(ax, 2.5, Y_TEXT, 3.2, 0.65,
+           "Text / History Tokens",
+           "Language instruction\n+ ego-motion history",
+           color=C["input"], title_fs=9, detail_fs=7.8)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # ROW B — Text pipeline  (y = 5.8)
-    # ══════════════════════════════════════════════════════════════════════
-    Y_TXT = 5.8
+    # ============================================================
+    # 3. VLM  (y: 10.5 to 14.0)
+    # ============================================================
+    Y_VLM_TOP = 14.0
+    Y_VLM_BOT = 10.5
 
-    draw_block(ax, 1.0, Y_TXT, 1.3, 0.75,
-               "Text Input", "Tokens",
-               color=COL["input"], edge_color=_darken(COL["input"]))
+    group_bg_vlm = FancyBboxPatch(
+        (2.5, Y_VLM_BOT - 0.10), 11.0, Y_VLM_TOP - Y_VLM_BOT + 0.20,
+        boxstyle="round,pad=0.06",
+        facecolor="#FFF8EE", edgecolor=_darken(C["vlm"], 0.20),
+        linewidth=1.4, zorder=1, linestyle="--",
+    )
+    ax.add_patch(group_bg_vlm)
+    ax.text(2.65, Y_VLM_TOP - 0.05,
+            "VLM  (Qwen3-VL-8B,  ~8B params)",
+            ha="left", va="top",
+            fontsize=9, color=_darken(C["vlm"]), fontstyle="italic")
 
-    draw_block(ax, 2.9, Y_TXT, 1.5, 0.75,
-               "Tokenizer", "BPE / WordPiece",
-               color=COL["text"], edge_color=_darken(COL["text"]))
+    Y_VLM_INPUT = 13.50
+    _block(ax, CX, Y_VLM_INPUT, 9.0, 0.70,
+           "Input Sequence",
+           "[Vision tokens  |  Text tokens  |  Ego-history tokens]  ->  (B, L, 4096)",
+           color=C["vlm"], title_fs=9.5, detail_fs=8.0)
 
-    draw_block(ax, 5.1, Y_TXT, 1.6, 0.75,
-               "Text Tokens", "seq_len × 4096",
-               color=COL["input"], edge_color=_darken(COL["input"]))
+    Y_VLM_LAYERS = 12.35
+    _block(ax, CX, Y_VLM_LAYERS, 9.0, 1.60,
+           "36x  Transformer Layer",
+           "RMSNorm  ->  GQA Self-Attention (32 Q-heads / 8 KV-heads)  ->  RMSNorm\n"
+           "->  SwiGLU FFN (hidden=4096, intermediate=12288)\n"
+           "RoPE positional encoding  |  Sliding-window + full attention",
+           color=C["vlm"], title_fs=10.5, detail_fs=8.2)
+    _param_badge(ax, CX + 4.8, Y_VLM_LAYERS, "~8B")
 
-    draw_arrow(ax, 1.65, Y_TXT, 2.15, Y_TXT)
-    draw_arrow(ax, 3.65, Y_TXT, 4.3,  Y_TXT)
+    Y_VLM_OUT = 10.85
+    _block(ax, CX, Y_VLM_OUT, 9.0, 0.70,
+           "VLM Output  ->  KV Cache",
+           "KV cache: (B, 36, L, 4096/8-heads)  |  used as context for Expert Decoder",
+           color=C["vlm"], title_fs=9.5, detail_fs=8.0)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # Merge arrows — Vision Tokens + Text Tokens → VLM  (y = 7.5)
-    # ══════════════════════════════════════════════════════════════════════
-    Y_VLM = 7.5
+    # Arrows within VLM
+    _varrow(ax, CX, Y_VLM_LAYERS + 0.80, Y_VLM_INPUT - 0.35,
+            label="(B, L, 4096)", label_x_offset=0.20, lw=1.4)
+    _varrow(ax, CX, Y_VLM_OUT + 0.35, Y_VLM_LAYERS - 0.80,
+            label="(B, L, 4096)", label_x_offset=0.20, lw=1.4)
 
-    # Vision Tokens → VLM
-    draw_arrow(ax, 9.5,  Y_VIS - 0.38, 11.0, Y_VLM + 0.38,
-               label="Vision\nTokens", label_side="left")
+    # Arrow: PatchMerger -> VLM input
+    _varrow(ax, CX, Y_PM - 0.38, Y_VLM_INPUT + 0.35,
+            label="(B, N/4, 4096)", label_x_offset=0.20)
 
-    # Text Tokens → VLM merge point
-    draw_arrow(ax, 5.1,  Y_TXT + 0.38, 11.0, Y_VLM - 0.38,
-               label="Text\nTokens", label_side="right")
+    # Arrow: Text tokens -> VLM input (diagonal from left)
+    ax.annotate("", xy=(CX - 3.5, Y_VLM_INPUT),
+                xytext=(2.5 + 1.6, Y_TEXT),
+                arrowprops=dict(
+                    arrowstyle="-|>", color=C["arrow"], lw=1.5,
+                    mutation_scale=13,
+                    connectionstyle="arc3,rad=-0.15",
+                ),
+                zorder=2)
+    ax.text(4.0, (Y_VLM_INPUT + Y_TEXT) / 2 + 0.15,
+            "text +\nhistory",
+            ha="right", va="center", fontsize=7.5, color="#37474F",
+            bbox=dict(fc="white", ec="none", alpha=0.75, pad=1.5))
 
-    # VLM block
-    draw_block(ax, 12.0, Y_VLM, 2.2, 1.1,
-               "VLM",
-               "Qwen3-VL-8B\nhidden=4096, 36 layers\nGQA  ·  ~8B params",
-               color=COL["vlm"], edge_color=_darken(COL["vlm"]),
-               fontsize=11)
+    # ============================================================
+    # 4. Expert Decoder  (y: 6.5 to 9.5)
+    # ============================================================
+    Y_EX_TOP = 9.5
+    Y_EX_BOT = 6.5
+    Y_EX_MID = (Y_EX_TOP + Y_EX_BOT) / 2
 
-    draw_arrow(ax, 11.0, Y_VLM, 10.9, Y_VLM)   # leading arrow into VLM
-    draw_arrow(ax, 10.9, Y_VLM, 10.9, Y_VLM)
+    group_bg_ex = FancyBboxPatch(
+        (2.5, Y_EX_BOT - 0.10), 11.0, Y_EX_TOP - Y_EX_BOT + 0.20,
+        boxstyle="round,pad=0.06",
+        facecolor="#EAFAF1", edgecolor=_darken(C["expert"], 0.25),
+        linewidth=1.4, zorder=1, linestyle="--",
+    )
+    ax.add_patch(group_bg_ex)
+    ax.text(2.65, Y_EX_TOP - 0.05,
+            "Expert Decoder  (~2B params)",
+            ha="left", va="top",
+            fontsize=9, color=_darken(C["expert"]), fontstyle="italic")
 
-    # Expert Tokens
-    draw_block(ax, 15.0, Y_VLM, 1.8, 0.80,
-               "Expert Tokens", "seq × 4096",
-               color=COL["input"], edge_color=_darken(COL["input"]))
+    Y_EX_LAYERS = 8.2
+    _block(ax, CX, Y_EX_LAYERS, 9.0, 2.0,
+           "16x  Transformer Layer",
+           "RMSNorm  ->  Self-Attention (16 heads, hidden=2048)\n"
+           "->  Cross-Attention conditioned on VLM KV cache\n"
+           "->  SwiGLU FFN (hidden=2048, intermediate=8256)\n"
+           "|  non-causal (expert_non_causal_attention=True)",
+           color=C["expert"], title_fs=10.5, detail_fs=8.2)
+    _param_badge(ax, CX + 4.8, Y_EX_LAYERS, "~2B")
 
-    draw_arrow(ax, 13.1, Y_VLM, 14.1, Y_VLM,
-               label="Reasoning\noutput")
+    Y_EX_OUT = 6.85
+    _block(ax, CX, Y_EX_OUT, 9.0, 0.60,
+           "Expert Output",
+           "last_hidden_state  ->  (B, 64, 2048)",
+           color=C["expert"], title_fs=9.5, detail_fs=8.0)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # ROW D — Diffusion pipeline  (y = 3.8)
-    # ══════════════════════════════════════════════════════════════════════
-    Y_DIFF = 3.8
+    # Arrows within Expert Decoder
+    _varrow(ax, CX, Y_EX_OUT + 0.30, Y_EX_LAYERS - 1.0,
+            label="(B, 64, 2048)", label_x_offset=0.20, lw=1.4)
+    _varrow(ax, CX, Y_EX_LAYERS + 1.0, Y_EX_OUT + 0.60,
+            label="(B, 64, 2048)", label_x_offset=0.20, lw=1.4)
 
-    # Noise input
-    draw_block(ax, 1.2, Y_DIFF, 1.4, 0.75,
-               "Gaussian Noise", r"$\epsilon \sim \mathcal{N}(0,I)$" "\n64×2",
-               color=COL["input"], edge_color=_darken(COL["input"]),
-               fontsize=9.5)
+    # KV cache feed from VLM to Expert Decoder (dashed side arrow)
+    kv_x = 13.8
+    ax.annotate("", xy=(kv_x, Y_EX_LAYERS),
+                xytext=(kv_x, Y_VLM_OUT - 0.35),
+                arrowprops=dict(
+                    arrowstyle="-|>", color=_darken(C["vlm"]),
+                    lw=1.8, mutation_scale=14,
+                    linestyle="dashed",
+                    connectionstyle="arc3,rad=0.0",
+                ),
+                zorder=2)
+    ax.text(kv_x + 0.15, (Y_VLM_OUT + Y_EX_LAYERS) / 2,
+            "KV cache\n(VLM -> Expert)",
+            ha="left", va="center", fontsize=8, color=_darken(C["vlm"]),
+            fontweight="bold",
+            bbox=dict(fc="white", ec="none", alpha=0.75, pad=1.5))
 
-    # Expert Decoder (conditioning)
-    draw_block(ax, 4.4, Y_DIFF, 2.2, 1.0,
-               "Expert Decoder",
-               "hidden=2048, 16 heads\nCross-Attention\n(conditions on Expert Tokens)",
-               color=COL["expert"], edge_color=_darken(COL["expert"]),
-               fontsize=10)
+    # Arrow: VLM output -> Expert Decoder (main spine)
+    _varrow(ax, CX, Y_VLM_OUT - 0.35, Y_EX_LAYERS + 1.0,
+            label="(B, 64, 2048)\naction embeds",
+            label_x_offset=0.20)
 
-    # Arrow: Expert Tokens → Expert Decoder
-    draw_arrow(ax, 15.0, Y_VLM - 0.40, 5.5, Y_DIFF + 0.50,
-               label="Expert\nTokens")
+    # ============================================================
+    # 5. Diffusion Head  (y: 3.0 to 6.0)
+    # ============================================================
+    Y_DH_TOP = 6.0
+    Y_DH_BOT = 3.0
 
-    # Diffusion loop
-    draw_block(ax, 8.2, Y_DIFF, 2.8, 1.1,
-               "Diffusion Loop",
-               "Flow Matching  ·  10 Euler steps\nU-Net / DiT denoiser\nDecoder conditioning injected",
-               color=COL["diffusion"], edge_color=_darken(COL["diffusion"]),
-               fontsize=10)
+    group_bg_dh = FancyBboxPatch(
+        (2.5, Y_DH_BOT - 0.10), 11.0, Y_DH_TOP - Y_DH_BOT + 0.20,
+        boxstyle="round,pad=0.06",
+        facecolor="#FEF5F5", edgecolor=_darken(C["diffusion"], 0.25),
+        linewidth=1.4, zorder=1, linestyle="--",
+    )
+    ax.add_patch(group_bg_dh)
+    ax.text(2.65, Y_DH_TOP - 0.05,
+            "Diffusion Head  (Flow Matching, 10 Euler steps)",
+            ha="left", va="top",
+            fontsize=9, color=_darken(C["diffusion"]), fontstyle="italic")
 
-    draw_arrow(ax, 1.9, Y_DIFF, 3.3, Y_DIFF,
-               label="noisy\nactions")
-    draw_arrow(ax, 5.5, Y_DIFF, 6.8, Y_DIFF,
-               label="conditioning\nvectors")
-    draw_arrow(ax, 9.6, Y_DIFF, 11.1, Y_DIFF,
-               label="denoised\n64×2")
+    # Noise input (side entry)
+    Y_NOISE = 5.35
+    _block(ax, 2.1, Y_NOISE, 2.6, 0.65,
+           "Gaussian Noise",
+           "x0 ~ N(0, I)\n(B, 64, 2)",
+           color=C["input"], title_fs=9, detail_fs=8.0)
 
-    # Denoised Actions
-    draw_block(ax, 12.0, Y_DIFF, 1.8, 0.80,
-               "Denoised Actions", "shape (64, 2)\n[accel, curvature]",
-               color=COL["action"], edge_color=_darken(COL["action"]))
+    # action_in_proj
+    Y_AINP = 5.35
+    _block(ax, CX, Y_AINP, 8.5, 0.72,
+           "action_in_proj",
+           "FourierEncode(x, t)  ->  MLP (hidden=1024, 4 layers)  ->  LayerNorm\n"
+           "Output: (B, 64, 2048)  [action + timestep embeddings]",
+           color=C["diffusion"], title_fs=10, detail_fs=8.0)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # ROW E — Unicycle model + Trajectory  (y = 1.6)
-    # ══════════════════════════════════════════════════════════════════════
-    Y_UNI = 1.6
+    # 10 Euler steps loop
+    Y_EULER = 4.35
+    _block(ax, CX, Y_EULER, 8.5, 1.00,
+           "10x Euler Step:  x = x + dt * v",
+           "dt = 0.1,   t = {0.0, 0.1, ..., 0.9}\n"
+           "Each step: action_in_proj -> Expert Decoder (16 layers) -> action_out_proj",
+           color=C["diffusion"], title_fs=10, detail_fs=8.3)
 
-    draw_arrow(ax, 12.0, Y_DIFF - 0.40, 12.0, Y_UNI + 0.55)
+    # action_out_proj
+    Y_AOUTP = 3.40
+    _block(ax, CX, Y_AOUTP, 8.5, 0.68,
+           "action_out_proj",
+           "Linear (2048 -> 2)  ->  velocity field  v  |  Output: (B, 64, 2)",
+           color=C["diffusion"], title_fs=10, detail_fs=8.0)
 
-    draw_block(ax, 12.0, Y_UNI, 2.2, 1.0,
-               "Unicycle Model",
-               r"$x_{k+1}=x_k+v_k\cos\psi_k\,\Delta t$" "\n"
-               r"$y_{k+1}=y_k+v_k\sin\psi_k\,\Delta t$" "\n"
-               r"$\psi_{k+1}=\psi_k+v_k\kappa_k\,\Delta t$",
-               color=COL["action"], edge_color=_darken(COL["action"]),
-               fontsize=9)
+    # Arrows: noise -> action_in_proj
+    _harrow(ax, 2.1 + 1.3, CX - 4.25, Y_AINP,
+            label="(B,64,2)", label_y_offset=0.10, lw=1.4)
 
-    draw_arrow(ax, 13.1, Y_UNI, 14.5, Y_UNI)
+    # Arrows within diffusion head
+    _varrow(ax, CX, Y_AINP - 0.36, Y_EULER + 0.50,
+            label="(B, 64, 2048)", label_x_offset=0.20, lw=1.4)
+    _varrow(ax, CX, Y_EULER - 0.50, Y_AOUTP + 0.34,
+            label="(B, 64, 2048)", label_x_offset=0.20, lw=1.4)
 
-    draw_block(ax, 15.5, Y_UNI, 2.4, 1.0,
-               "Trajectory",
-               "shape (64, 3)\n[x,  y,  yaw]\ndt = 0.1 s  →  6.4 s horizon",
-               color=COL["traj"], edge_color=_darken(COL["traj"]),
-               fontsize=10)
+    # Arrow: Expert Decoder output -> Diffusion Head
+    _varrow(ax, CX, Y_EX_OUT - 0.30, Y_AINP + 0.36,
+            label="(B, 64, 2048)", label_x_offset=0.20)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # Legend panel (bottom-left)
-    # ══════════════════════════════════════════════════════════════════════
-    legend_items = [
-        ("Input / Intermediate Tensor", COL["input"]),
-        ("Vision Encoder",              COL["vision"]),
-        ("Text Processing",             COL["text"]),
-        ("VLM  (Qwen3-VL-8B)",          COL["vlm"]),
-        ("Expert Decoder",              COL["expert"]),
-        ("Diffusion",                   COL["diffusion"]),
-        ("Action / Unicycle",           COL["action"]),
-        ("Output Trajectory",           COL["traj"]),
-    ]
+    # Feedback loop label (Expert Decoder used inside loop)
+    ax.annotate("", xy=(13.7, Y_EULER),
+                xytext=(13.7, Y_EX_MID),
+                arrowprops=dict(
+                    arrowstyle="-|>", color=_darken(C["expert"]),
+                    lw=1.6, mutation_scale=12,
+                    linestyle="dashed",
+                    connectionstyle="arc3,rad=0.0",
+                ),
+                zorder=2)
+    ax.text(13.85, (Y_EULER + Y_EX_MID) / 2,
+            "Expert Decoder\ncalled per step",
+            ha="left", va="center", fontsize=7.5,
+            color=_darken(C["expert"]), fontweight="bold",
+            bbox=dict(fc="white", ec="none", alpha=0.75, pad=1.5))
 
-    lx, ly0 = 0.35, 4.8
-    ax.text(lx, ly0 + 0.22, "Legend", fontsize=9, fontweight="bold",
-            color="#37474F", va="center")
-    for i, (lbl, col) in enumerate(legend_items):
-        box = FancyBboxPatch(
-            (lx - 0.18, ly0 - 0.48 - i * 0.52), 0.32, 0.32,
-            boxstyle="round,pad=0.04",
-            facecolor=col, edgecolor=_darken(col),
-            linewidth=1.2, zorder=4,
-        )
-        ax.add_patch(box)
-        ax.text(lx + 0.25, ly0 - 0.32 - i * 0.52, lbl,
-                va="center", ha="left", fontsize=8.2, color="#212121")
+    # ============================================================
+    # 6. Action Space & Trajectory Output
+    # ============================================================
+    Y_ACT = 2.45
+    _block(ax, CX, Y_ACT, 9.0, 0.72,
+           "Action Space  ->  Unicycle Kinematics",
+           "(accel, curvature) x 64  ->  v, theta, x, y\n"
+           "x[k+1] = x[k] + v[k]*cos(theta[k])*dt,   dt=0.1 s",
+           color=C["action"], title_fs=10, detail_fs=8.2)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # Parameter count summary box (bottom-right)
-    # ══════════════════════════════════════════════════════════════════════
+    Y_TRAJ = 1.55
+    _block(ax, CX, Y_TRAJ, 9.0, 0.68,
+           "Trajectory Output",
+           "shape (B, 64, 3)  |  [x (m),  y (m),  yaw (rad)]\n"
+           "64 waypoints at dt=0.1 s  ->  6.4 s prediction horizon",
+           color=C["traj"], title_fs=10, detail_fs=8.2)
+
+    # Arrows
+    _varrow(ax, CX, Y_AOUTP - 0.34, Y_ACT + 0.36,
+            label="(B, 64, 2)\n[accel, curv]",
+            label_x_offset=0.20)
+    _varrow(ax, CX, Y_ACT - 0.36, Y_TRAJ + 0.34,
+            label="(B, 64, 3)", label_x_offset=0.20)
+
+    # ============================================================
+    # Parameter summary box  (right side)
+    # ============================================================
     summary = (
         "Parameter Summary\n"
-        "─────────────────────────\n"
-        "Vision Encoder   ~427 M\n"
-        "VLM (Qwen3-VL)  ~8 000 M\n"
-        "Expert Decoder    ~200 M\n"
-        "Diffusion         ~500 M\n"
-        "─────────────────────────\n"
-        "Total           ~9 127 M\n"
-        "(≈ 10B, fp16 ≈ 18.3 GB)"
+        "-----------------------------\n"
+        "Vision Encoder        ~427 M\n"
+        "  PatchEmbed           ~10 M\n"
+        "  27x VisionBlock     ~400 M\n"
+        "  PatchMerger          ~37 M\n"
+        "VLM  (Qwen3-VL-8B)  ~8,000 M\n"
+        "Expert Decoder        ~200 M\n"
+        "Diffusion Head         ~50 M\n"
+        "  action_in_proj       ~30 M\n"
+        "  action_out_proj       ~4 M\n"
+        "-----------------------------\n"
+        "Total              ~8,677 M\n"
+        "(approx 10B,  FP16 ~17.4 GB)"
     )
     ax.text(
-        16.8, 2.1, summary,
+        15.85, 11.8, summary,
         ha="right", va="top",
-        fontsize=8.2, color="white",
+        fontsize=7.8, color="white", fontweight="normal",
         family="monospace",
-        bbox=dict(boxstyle="round,pad=0.6",
-                  fc="#37474F", ec="#263238", alpha=0.92),
-        zorder=5,
+        bbox=dict(boxstyle="round,pad=0.60",
+                  fc="#2C3E50", ec="#1A252F",
+                  linewidth=1.2, alpha=0.93),
+        zorder=6,
     )
 
-    # ══════════════════════════════════════════════════════════════════════
-    # Flow label annotations
-    # ══════════════════════════════════════════════════════════════════════
-    ax.text(9, 10.55,
-            "[ Vision Pipeline ]",
-            ha="center", va="center", fontsize=9,
-            color=_darken(COL["vision"]), fontstyle="italic")
-    ax.text(3.5, 6.75,
-            "[ Text Pipeline ]",
-            ha="center", va="center", fontsize=9,
-            color=_darken(COL["text"]), fontstyle="italic")
-    ax.text(12.0, 8.35,
-            "[ VLM Backbone ]",
-            ha="center", va="center", fontsize=9,
-            color=_darken(COL["vlm"]), fontstyle="italic")
-    ax.text(6.5, 4.82,
-            "[ Diffusion  +  Expert Conditioning ]",
-            ha="center", va="center", fontsize=9,
-            color=_darken(COL["diffusion"]), fontstyle="italic")
-    ax.text(13.8, 0.72,
-            "[ Action Decoding  →  Trajectory ]",
-            ha="center", va="center", fontsize=9,
-            color=_darken(COL["traj"]), fontstyle="italic")
+    # ============================================================
+    # Colour legend  (bottom left)
+    # ============================================================
+    legend_items = [
+        ("Input / Intermediate Tensor", C["input"]),
+        ("Vision Encoder  (SigLIP)",    C["vision"]),
+        ("VLM  (Qwen3-VL-8B)",          C["vlm"]),
+        ("Expert Decoder  (~2B)",        C["expert"]),
+        ("Diffusion Head",               C["diffusion"]),
+        ("Action Space  /  Kinematics", C["action"]),
+        ("Trajectory Output",            C["traj"]),
+    ]
+
+    lx, ly0 = 0.30, 4.80
+    ax.text(lx + 0.08, ly0 + 0.35, "Legend",
+            fontsize=9, fontweight="bold", color="#37474F", va="center")
+    dy = 0.55
+    for i, (lbl, col) in enumerate(legend_items):
+        sw = FancyBboxPatch(
+            (lx, ly0 - 0.18 - i * dy), 0.38, 0.34,
+            boxstyle="round,pad=0.04",
+            facecolor=col, edgecolor=_darken(col),
+            linewidth=1.1, zorder=4,
+        )
+        ax.add_patch(sw)
+        ax.text(lx + 0.52, ly0 - 0.01 - i * dy, lbl,
+                va="center", ha="left", fontsize=8.2, color="#212121")
 
     return fig
 
 
-# ── Entry point ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    import pathlib
-
-    OUT = pathlib.Path(
-        "/home/seungwoo/workspace/analysis/figures/architecture_overview.png"
-    )
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out_path = "/home/seungwoo/workspace/analysis/figures/architecture_overview.png"
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     fig = build_figure()
-    fig.savefig(str(OUT), dpi=300, bbox_inches="tight",
-                facecolor=fig.get_facecolor())
+    fig.savefig(out_path, dpi=300, bbox_inches="tight",
+                facecolor=C["bg"], edgecolor="none")
     plt.close(fig)
-    print(f"Saved: {OUT}")
+    print(f"Saved: {out_path}")
