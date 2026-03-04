@@ -1,3 +1,198 @@
+# Alpamayo-R1-10B Architecture Overview
+
+## 전체 아키텍처 블록도
+
+![Architecture Overview](figures/architecture_overview.png)
+
+위 그림은 Alpamayo-R1-10B의 전체 추론 파이프라인을 7단계로 나누어 시각화한 블록도.
+카메라 이미지 입력부터 최종 경로(trajectory) 출력까지의 텐서 흐름, 각 모듈의 내부 구조, 파라미터 규모를 한눈에 파악 가능하도록 구성.
+
+---
+
+## 그림 설명
+
+### 1. Image Input
+
+- **역할**: 자율주행 차량의 카메라로부터 수집된 원시 프레임을 모델에 공급하는 입력 단계
+- **텐서 형태**: `H x W x 3` (높이 x 너비 x RGB 3채널)
+- **설명**: 단일 또는 다중 카메라 프레임이 모델의 첫 번째 처리 단계인 Vision Encoder로 전달. 이미지 해상도(H, W)는 학습/추론 설정에 따라 결정되며, 3채널 RGB 형식의 부동소수점 텐서로 정규화된 상태로 입력.
+
+---
+
+### 2. Vision Encoder (SigLIP-400M, ~427M params)
+
+Vision Encoder는 SigLIP-400M 아키텍처를 기반으로 한 시각 특징 추출기. 이미지를 패치 단위로 분해하고, Transformer 블록을 통해 고차원 시각 표현을 생성한 후, 공간 압축을 거쳐 VLM에 전달 가능한 토큰 시퀀스로 변환. 총 3개의 하위 모듈로 구성.
+
+#### 2-1. PatchEmbed (~10M params)
+
+- **구조**: `Conv3d(3 -> 1152, kernel=2x16x16, stride=2x16x16)`
+- **기능**: 입력 프레임을 16x16 크기의 비겹침(non-overlapping) 패치로 분할하고, 각 패치를 1152차원 임베딩 벡터로 변환
+- **출력**: `(B, N_patches, 1152)` — B는 배치 크기, N_patches는 총 패치 수
+- **특이사항**: Conv3d 사용으로 시간축(temporal) 2프레임을 동시 처리 가능. kernel 첫 번째 차원이 2로 설정되어 연속 2프레임의 시공간 패치 임베딩 수행
+
+#### 2-2. 27x VisionBlock (~400M params)
+
+- **구조**: 27개 동일 블록의 반복 스택
+  - `LayerNorm -> Multi-Head Attention (16 heads, dim=1152) -> LayerNorm -> MLP (1152 -> 4304 -> 1152, SiLU)`
+- **위치 인코딩**: RoPE (Rotary Position Embedding) 적용
+- **기능**: 패치 임베딩 간의 전역 관계(global relationship)를 모델링. 16개 어텐션 헤드로 다양한 시각적 패턴을 병렬 포착하며, MLP 확장 비율(4304/1152 ≈ 3.74x)을 통해 비선형 특징 변환 수행
+- **출력**: `(B, N_patches, 1152)` — 입력과 동일한 형태(residual connection)
+
+#### 2-3. PatchMerger (~37M params)
+
+- **구조**: 2x2 공간 병합 + `MLP(4608 -> 4096)`
+- **기능**: 인접한 2x2 패치 토큰을 하나로 병합하여 시퀀스 길이를 1/4로 축소. 4개의 1152차원 벡터를 연결(concatenate)하면 4608차원이 되며, MLP를 통해 VLM 입력 차원인 4096으로 투사
+- **출력**: `(B, N/4, 4096)` — 패치 수 1/4 감소, 차원 1152 -> 4096 변환
+- **효과**: VLM에 전달되는 시각 토큰 수를 대폭 감소시켜 계산 효율 향상. 동시에 차원을 VLM의 hidden_size(4096)에 정렬
+
+---
+
+### 3. VLM — Qwen3-VL-8B (~8B params)
+
+Vision-Language Model(VLM)은 시각 토큰과 언어/이력 토큰을 통합하여 멀티모달 컨텍스트를 생성하는 핵심 모듈. Qwen3-VL-8B 아키텍처 기반으로, 대규모 사전학습된 언어 모델의 추론 능력을 활용.
+
+#### 3-1. Input Sequence
+
+- **구성**: `[Vision tokens | Text tokens | Ego-history tokens]`
+- **텐서 형태**: `(B, L, 4096)` — L은 전체 시퀀스 길이(시각 + 텍스트 + 이력 토큰의 합)
+- **Vision tokens**: PatchMerger 출력으로부터 전달된 시각 표현
+- **Text tokens**: 자연어 명령 또는 주행 지시어(예: "좌회전", "직진 유지") 임베딩
+- **Ego-history tokens**: 차량의 과거 자기운동(ego-motion) 이력 인코딩
+
+#### 3-2. 36x Transformer Layer (~8B params)
+
+- **구조**: 36개 Transformer 레이어 스택
+  - `RMSNorm -> GQA Self-Attention (32 Q-heads / 8 KV-heads) -> RMSNorm -> SwiGLU FFN (4096 -> 12288 -> 4096)`
+- **어텐션**: Grouped-Query Attention (GQA) 적용
+  - 32개 Query 헤드, 8개 KV 헤드 (4:1 비율)
+  - KV 헤드 공유를 통해 메모리 사용량 절감 (KV cache 크기 1/4)
+  - Sliding-window attention과 full attention 혼합 사용
+- **FFN**: SwiGLU 활성화 함수, 확장 비율 3x (4096 -> 12288)
+- **위치 인코딩**: RoPE 적용
+- **출력**: `(B, L, 4096)`
+
+#### 3-3. VLM Output -> KV Cache
+
+- **기능**: VLM의 최종 출력에서 KV cache를 추출하여 Expert Decoder의 Cross-Attention 컨텍스트로 제공
+- **KV cache 형태**: `(B, 36_layers, L, head_dim)` — 모든 레이어의 Key-Value 쌍 저장
+- **연결 방식**: 점선 화살표(dashed arrow)로 표현된 VLM -> Expert Decoder 간의 KV cache 전달 경로가 블록도 좌측에 표시
+
+---
+
+### 4. Expert Decoder (~2B params)
+
+Expert Decoder는 VLM이 생성한 멀티모달 컨텍스트를 기반으로 행동(action) 표현을 정제하는 전용 디코더. VLM의 KV cache를 Cross-Attention으로 참조하면서, Diffusion Head로부터 전달되는 action embedding을 처리.
+
+#### 4-1. 16x Transformer Layer (~2B params)
+
+- **구조**: 16개 Transformer 레이어
+  - `RMSNorm -> Self-Attention (16 heads, hidden=2048) -> Cross-Attention (VLM KV cache 참조) -> SwiGLU FFN (2048 -> 8256 -> 2048)`
+- **Self-Attention**: 16개 헤드, hidden_dim=2048
+- **Cross-Attention**: VLM의 KV cache를 Key/Value로 사용하여 멀티모달 컨텍스트 참조
+- **FFN**: SwiGLU, 확장 비율 약 4x (2048 -> 8256)
+- **Non-causal attention**: `expert_non_causal_attention=True` — 미래 토큰도 참조 가능한 양방향 어텐션 사용. 인과적(causal) 마스킹 비적용
+
+#### 4-2. Expert Output
+
+- **출력**: `(B, 64, 2048)` — 64개 action 토큰, 각 2048차원
+- **의미**: 64개 시간 스텝에 대응하는 행동 표현. Diffusion Head의 각 Euler step에서 반복 호출
+
+---
+
+### 5. Diffusion Head (Flow Matching)
+
+Diffusion Head는 Flow Matching 방식의 확산 모델로, 가우시안 노이즈로부터 시작하여 10단계 Euler 적분을 통해 행동 시퀀스를 생성. Expert Decoder를 매 스텝마다 호출하여 velocity field를 예측.
+
+#### 5-1. action_in_proj
+
+- **구조**: `FourierEncode(x, t) -> MLP (hidden=1024, 4 layers) -> LayerNorm`
+- **입력**: 현재 noisy action `x`와 timestep `t`
+- **기능**: Fourier feature encoding으로 연속적인 timestep 정보를 고차원으로 확장 후, MLP를 통해 Expert Decoder 입력 차원(2048)으로 투사
+- **출력**: `(B, 64, 2048)` — action embedding + timestep embedding 결합
+
+#### 5-2. 10x Euler Step
+
+- **수식**: `x = x + dt * v` (dt = 0.1)
+- **스텝**: t = {0.0, 0.1, 0.2, ..., 0.9} 총 10단계
+- **흐름**: 각 스텝마다 `action_in_proj -> Expert Decoder (16 layers) -> action_out_proj` 전체 파이프라인 실행
+- **특성**: 블록도 우측의 점선 화살표가 Expert Decoder와의 반복 호출 관계를 표현. 10회 반복으로 인해 Expert Decoder가 전체 추론 시간의 지배적 비중 차지
+
+#### 5-3. action_out_proj
+
+- **구조**: `Linear(2048 -> 2)`
+- **기능**: Expert Decoder 출력을 2차원 velocity field `v`로 투사
+- **출력**: `(B, 64, 2)` — 각 시간 스텝에서의 (가속도, 곡률) 예측값
+
+---
+
+### 6. Action Space
+
+- **입력**: `(B, 64, 2)` — (acceleration, curvature) x 64 스텝
+- **변환**: Unicycle kinematics 모델 적용
+  - `v[k+1] = v[k] + accel[k] * dt`
+  - `theta[k+1] = theta[k] + v[k] * curvature[k] * dt`
+  - `x[k+1] = x[k] + v[k] * cos(theta[k]) * dt`
+  - `y[k+1] = y[k] + v[k] * sin(theta[k]) * dt`
+- **의미**: 저차원 action space (가속도, 곡률)로부터 물리적으로 실현 가능한(physically feasible) 경로를 생성. Unicycle 모델은 차량의 비홀로노믹(non-holonomic) 제약을 자연스럽게 반영
+
+---
+
+### 7. Trajectory Output
+
+- **출력 형태**: `(B, 64, 3)` — [x (m), y (m), yaw (rad)]
+- **시간 해상도**: dt = 0.1초 간격, 64개 웨이포인트
+- **예측 수평선**: 64 x 0.1 = **6.4초** 미래 경로 예측
+- **좌표계**: 차량 중심 로컬 좌표계 (ego-centric coordinate frame)
+- **활용**: 생성된 경로를 하위 제어기(controller)에 전달하여 실제 차량 조향/가감속 명령으로 변환
+
+---
+
+### 텐서 흐름 요약 표
+
+| 단계 | 모듈 | 입력 텐서 | 출력 텐서 |
+|------|------|-----------|-----------|
+| 1 | Image Input | 카메라 프레임 | (B, H, W, 3) |
+| 2-1 | PatchEmbed | (B, 2, H, W, 3) | (B, N, 1152) |
+| 2-2 | 27x VisionBlock | (B, N, 1152) | (B, N, 1152) |
+| 2-3 | PatchMerger | (B, N, 1152) | (B, N/4, 4096) |
+| 3-1 | VLM Input Sequence | [Vision \| Text \| History] | (B, L, 4096) |
+| 3-2 | 36x Transformer | (B, L, 4096) | (B, L, 4096) |
+| 3-3 | VLM Output / KV Cache | (B, L, 4096) | KV: (B, 36, L, head_dim) |
+| 4-1 | 16x Expert Transformer | (B, 64, 2048) + KV cache | (B, 64, 2048) |
+| 5-1 | action_in_proj | (B, 64, 2) + timestep t | (B, 64, 2048) |
+| 5-2 | 10x Euler Step | x_t (B, 64, 2) | x_{t+1} (B, 64, 2) |
+| 5-3 | action_out_proj | (B, 64, 2048) | (B, 64, 2) |
+| 6 | Unicycle Kinematics | (B, 64, 2) [accel, curv] | (B, 64, 3) [x, y, yaw] |
+| 7 | Trajectory Output | (B, 64, 3) | 64 waypoints, 6.4s horizon |
+
+---
+
+### 파라미터 요약
+
+| 모듈 | 하위 구성 | 파라미터 수 | 비중 |
+|------|-----------|------------|------|
+| **Vision Encoder** | | **~427M** | **4.9%** |
+| | PatchEmbed | ~10M | 0.1% |
+| | 27x VisionBlock | ~400M | 4.6% |
+| | PatchMerger | ~37M | 0.4% |
+| **VLM (Qwen3-VL-8B)** | 36x Transformer | **~8,000M** | **92.2%** |
+| **Expert Decoder** | 16x Transformer | **~200M** | **2.3%** |
+| **Diffusion Head** | | **~50M** | **0.6%** |
+| | action_in_proj | ~30M | 0.3% |
+| | action_out_proj | ~4M | <0.1% |
+| **합계** | | **~8,677M (~10B)** | **100%** |
+
+- FP16 메모리 사용량: 약 **17.4 GB** (8,677M x 2 bytes)
+- VLM이 전체 파라미터의 92% 이상을 차지하며, 추론 시 메모리 병목의 주요 원인
+- Expert Decoder는 파라미터 수 대비 10회 반복 호출로 인해 계산량(FLOPs) 기여가 파라미터 비중보다 훨씬 높음
+
+---
+
+## 시각화 코드
+
+아래는 위 아키텍처 블록도를 생성하는 전체 Python 소스코드. matplotlib 기반으로 수동 레이아웃된 블록 다이어그램 생성.
+
+```python
 """
 visualize_architecture.py
 
@@ -574,3 +769,4 @@ if __name__ == "__main__":
                 facecolor=C["bg"], edgecolor="none")
     plt.close(fig)
     print(f"Saved: {out_path}")
+```
