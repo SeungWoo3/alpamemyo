@@ -63,28 +63,45 @@ class VRAMMonitor:
         }
 
 
-def pin_all_parameters(model):
-    """모든 CPU 파라미터를 pinned memory로 변환 (메모리 절약: 원본 즉시 해제)"""
+def pin_all_parameters_layerwise(model):
+    """모든 CPU 파라미터를 레이어 단위로 pinned memory 변환 (RAM 절약).
+
+    한 레이어씩: pin 복사 → 원본 해제 → gc.collect() → 다음 레이어.
+    피크 RAM = 모델 크기 + 1개 레이어 크기 (~0.5GB).
+    """
     pinned_count = 0
     pinned_bytes = 0
-    for name, param in model.named_parameters():
-        if param.device.type == "cpu":
-            data = param.data
-            if not data.is_contiguous():
-                data = data.contiguous()
-            if not data.is_pinned():
+
+    # 모델을 모듈 단위로 순회하며 레이어별 처리
+    for module_name, module in model.named_modules():
+        # 자식이 없는 leaf 모듈만 처리
+        if len(list(module.children())) > 0:
+            continue
+
+        module_pinned = False
+        for pname, param in module.named_parameters(recurse=False):
+            if param.device.type == "cpu" and not param.data.is_pinned():
+                data = param.data
+                if not data.is_contiguous():
+                    data = data.contiguous()
                 pinned = data.pin_memory()
-                param.data = torch.empty(0)  # 원본 해제 (RAM 절약)
                 param.data = pinned
                 del data
                 pinned_count += 1
                 pinned_bytes += pinned.nelement() * pinned.element_size()
-    for name, buf in model.named_buffers():
-        if buf.device.type == "cpu" and not buf.is_pinned():
-            pinned = buf.data.contiguous().pin_memory()
-            buf.data = torch.empty(0)
-            buf.data = pinned
-    gc.collect()
+                module_pinned = True
+
+        for bname, buf in module.named_buffers(recurse=False):
+            if buf.device.type == "cpu" and not buf.data.is_pinned():
+                data = buf.data.contiguous()
+                pinned = data.pin_memory()
+                buf.data = pinned
+                del data
+                module_pinned = True
+
+        if module_pinned:
+            gc.collect()
+
     return pinned_count, pinned_bytes
 
 
@@ -150,7 +167,7 @@ def main():
     # Phase 3: pin_memory() 적용
     print("\n[Phase 3] Pinning all parameters...")
     t0 = time.time()
-    pinned_count, pinned_bytes = pin_all_parameters(model)
+    pinned_count, pinned_bytes = pin_all_parameters_layerwise(model)
     t_pin = time.time() - t0
     print(f"  Pinned {pinned_count} params ({pinned_bytes / 1024**3:.2f} GB)")
     print(f"  Pin time: {t_pin:.2f}s")

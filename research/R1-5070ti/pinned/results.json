@@ -3,6 +3,17 @@
   "gpu": "NVIDIA GeForce RTX 5070 Ti",
   "total_vram_gb": 15.46,
   "method": "CPU load → pin_memory() → .to('cuda')",
-  "error": "RAM OOM — pin_memory()가 21.5GB 복사본 생성, 원본+복사 합계 ~43GB > 32GB RAM → 커널 OOM Killer → 서버 크래시",
-  "note": "pin 후 원본 즉시 해제 시도했으나 PyTorch 내부 참조로 인해 해제 불가. 3회 시도 모두 서버 크래시."
+  "data_load_time": 88.94,
+  "cpu_load_time": 38.87,
+  "pin_time": null,
+  "to_cuda_time": null,
+  "inference_time": null,
+  "peak_vram_gb": null,
+  "minADE": null,
+  "error": "SYSTEM_RAM_OOM",
+  "error_detail": "pin_memory()가 21.52GB 모델 파라미터 전체를 pinned(locked) 메모리에 복사 — 원본(21.5GB) + 복사본(21.5GB) ≈ 43GB > 32GB RAM 한계 초과. systemd-oomd가 메모리 압력 67%+ 감지 후 프로세스 kill → 서버 재시작. 총 3회 시도 동일 현상.",
+  "crash_cause": "systemd-oomd: memory pressure > 50% threshold, user session killed",
+  "note": "CUDA OOM 아님. 시스템 RAM 부족으로 pin_memory 단계에서 크래시. 21.52GB 모델을 pin하려면 최소 43GB RAM 필요 (현재 32GB). .to('cuda') 단계에 도달하지 못함.",
+  "attempts": 3,
+  "all_attempts_failed": true
 }

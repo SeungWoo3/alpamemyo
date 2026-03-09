@@ -75,26 +75,41 @@ def get_device_map_summary(model):
 
 
 def pin_cpu_parameters(model):
-    """CPU에 배치된 모든 파라미터를 pinned memory로 변환"""
+    """CPU에 배치된 모든 파라미터를 레이어별 pinned memory로 변환 (RAM 절약)"""
     pinned_count = 0
     pinned_bytes = 0
     skipped = 0
 
-    for name, param in model.named_parameters():
-        if param.device.type == "cpu":
-            data = param.data
-            if not data.is_contiguous():
-                data = data.contiguous()
-            if not data.is_pinned():
-                param.data = data.pin_memory()
-                pinned_count += 1
-                pinned_bytes += param.nelement() * param.element_size()
-            else:
-                skipped += 1
+    for module_name, module in model.named_modules():
+        if len(list(module.children())) > 0:
+            continue
 
-    for name, buf in model.named_buffers():
-        if buf.device.type == "cpu" and not buf.is_pinned():
-            buf.data = buf.data.contiguous().pin_memory()
+        module_pinned = False
+        for pname, param in module.named_parameters(recurse=False):
+            if param.device.type == "cpu":
+                data = param.data
+                if not data.is_contiguous():
+                    data = data.contiguous()
+                if not data.is_pinned():
+                    pinned = data.pin_memory()
+                    param.data = pinned
+                    del data
+                    pinned_count += 1
+                    pinned_bytes += pinned.nelement() * pinned.element_size()
+                    module_pinned = True
+                else:
+                    skipped += 1
+
+        for bname, buf in module.named_buffers(recurse=False):
+            if buf.device.type == "cpu" and not buf.data.is_pinned():
+                data = buf.data.contiguous()
+                pinned = data.pin_memory()
+                buf.data = pinned
+                del data
+                module_pinned = True
+
+        if module_pinned:
+            gc.collect()
 
     return pinned_count, pinned_bytes, skipped
 
