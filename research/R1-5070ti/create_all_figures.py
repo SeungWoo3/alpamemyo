@@ -36,8 +36,8 @@ def load_json(path):
 
 def plot_baseline_vram():
     """baseline VRAM 타임라인"""
-    vram = load_json(os.path.join(BASE_DIR, "baseline", "baseline_vram_timeline.json"))
-    results = load_json(os.path.join(BASE_DIR, "baseline", "baseline_results.json"))
+    vram = load_json(os.path.join(BASE_DIR, "device-map-auto", "baseline_vram_timeline.json"))
+    results = load_json(os.path.join(BASE_DIR, "device-map-auto", "baseline_results.json"))
 
     fig, ax = plt.subplots(figsize=(12, 5), facecolor=DARK_BG)
     dark_style(ax)
@@ -73,7 +73,7 @@ def plot_baseline_vram():
             color=DARK_FG)
 
     plt.tight_layout()
-    out = os.path.join(BASE_DIR, "baseline", "vram_timeline.png")
+    out = os.path.join(BASE_DIR, "device-map-auto", "vram_timeline.png")
     fig.savefig(out, dpi=150, facecolor=DARK_BG)
     plt.close()
     print(f"  저장: {out}")
@@ -81,7 +81,7 @@ def plot_baseline_vram():
 
 def plot_maxclock_comparison():
     """기본 vs 클럭고정 비교"""
-    baseline = load_json(os.path.join(BASE_DIR, "baseline", "baseline_results.json"))
+    baseline = load_json(os.path.join(BASE_DIR, "device-map-auto", "baseline_results.json"))
     maxclock = load_json(os.path.join(BASE_DIR, "max-clock", "baseline_maxclock_results.json"))
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 6), facecolor=DARK_BG)
@@ -145,7 +145,7 @@ def plot_maxclock_comparison():
 
 def plot_maxclock_vram_comparison():
     """기본 vs 클럭고정 VRAM 타임라인 비교"""
-    vram_base = load_json(os.path.join(BASE_DIR, "baseline", "baseline_vram_timeline.json"))
+    vram_base = load_json(os.path.join(BASE_DIR, "device-map-auto", "baseline_vram_timeline.json"))
     vram_max = load_json(os.path.join(BASE_DIR, "max-clock", "baseline_maxclock_vram_timeline.json"))
 
     fig, ax = plt.subplots(figsize=(12, 5), facecolor=DARK_BG)
