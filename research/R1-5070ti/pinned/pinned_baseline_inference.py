@@ -64,7 +64,7 @@ class VRAMMonitor:
 
 
 def pin_all_parameters(model):
-    """모든 CPU 파라미터를 pinned memory로 변환"""
+    """모든 CPU 파라미터를 pinned memory로 변환 (메모리 절약: 원본 즉시 해제)"""
     pinned_count = 0
     pinned_bytes = 0
     for name, param in model.named_parameters():
@@ -73,12 +73,18 @@ def pin_all_parameters(model):
             if not data.is_contiguous():
                 data = data.contiguous()
             if not data.is_pinned():
-                param.data = data.pin_memory()
+                pinned = data.pin_memory()
+                param.data = torch.empty(0)  # 원본 해제 (RAM 절약)
+                param.data = pinned
+                del data
                 pinned_count += 1
-                pinned_bytes += param.nelement() * param.element_size()
+                pinned_bytes += pinned.nelement() * pinned.element_size()
     for name, buf in model.named_buffers():
         if buf.device.type == "cpu" and not buf.is_pinned():
-            buf.data = buf.data.contiguous().pin_memory()
+            pinned = buf.data.contiguous().pin_memory()
+            buf.data = torch.empty(0)
+            buf.data = pinned
+    gc.collect()
     return pinned_count, pinned_bytes
 
 
