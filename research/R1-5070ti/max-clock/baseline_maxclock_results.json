@@ -1,0 +1,24 @@
+{
+  "clock_info_before": "clocks.current.graphics [MHz], clocks.current.memory [MHz], pcie.link.gen.current, pcie.link.width.current, power.draw [W], power.limit [W]\n2842 MHz, 14001 MHz, 5, 16, 49.83 W, 300.00 W",
+  "data_load_time": 60.861966609954834,
+  "model_load_time": 52.08781385421753,
+  "model_load_start_t": 60.86326622962952,
+  "model_load_end_t": 112.95108842849731,
+  "vram_after_load": 11.965096473693848,
+  "clock_info_after_load": "clocks.current.graphics [MHz], clocks.current.memory [MHz], pcie.link.gen.current, pcie.link.width.current, power.draw [W], power.limit [W]\n2842 MHz, 13801 MHz, 5, 16, 50.12 W, 300.00 W",
+  "device_placement": {
+    "cuda": 29,
+    "cpu": 17
+  },
+  "clock_info_after_inference": "clocks.current.graphics [MHz], clocks.current.memory [MHz], pcie.link.gen.current, pcie.link.width.current, power.draw [W], power.limit [W]\n2835 MHz, 13801 MHz, 5, 16, 51.00 W, 300.00 W",
+  "inference_time": 168.95391702651978,
+  "inference_start_t": 126.3353681564331,
+  "inference_end_t": 295.28940629959106,
+  "minADE": 2.554809331893921,
+  "cot": "[['Nudge to the left to increase clearance from the construction cones encroaching into the lane.']]",
+  "peak_vram_allocated": 13.664459228515625,
+  "peak_vram_reserved": 14.025390625,
+  "gpu": "RTX 5070 Ti 16GB",
+  "method": "device_map=auto (max clock)",
+  "total_time": 295.5427327156067
+}

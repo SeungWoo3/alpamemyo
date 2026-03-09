@@ -1,22 +1,15 @@
-"""
-5070ti 베이스라인 추론 실험
-- device_map="auto": Transformers가 레이어를 GPU/CPU에 자동 배치
-- 21.52GB 모델, 16GB VRAM → 일부 레이어 CPU 오프로드 예상
-- 측정 항목: 모델 로딩 시간, 추론 시간, VRAM 사용량 시계열
-"""
 import torch
 import numpy as np
 import time
 import threading
 import json
+import subprocess
 
 from alpamayo_r1.models.alpamayo_r1 import AlpamayoR1
 from alpamayo_r1.load_physical_aiavdataset import load_physical_aiavdataset
 from alpamayo_r1 import helper
 
-
 class VRAMMonitor:
-    """VRAM 사용량 시계열 모니터링"""
     def __init__(self, interval=0.1):
         self.interval = interval
         self.timestamps = []
@@ -52,31 +45,32 @@ class VRAMMonitor:
             "reserved_gb": self.reserved,
         }
 
-
-def get_device_map_summary(model):
-    """모델 레이어별 device 배치 요약"""
-    device_count = {}
-    for name, param in model.named_parameters():
-        dev = str(param.device)
-        device_count[dev] = device_count.get(dev, 0) + 1
-    return device_count
-
+def get_gpu_clocks():
+    """현재 GPU 클럭 정보 조회"""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=clocks.gr,clocks.mem,pcie.link.gen.current,pcie.link.width.current,power.draw,power.limit"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except:
+        pass
+    return "N/A"
 
 def main():
-    print("=" * 60)
-    print("5070ti 베이스라인 추론 실험 (device_map='auto')")
-    print("=" * 60)
+    results = {}
 
-    results = {
-        "method": "device_map=auto",
-        "gpu": "RTX 5070 Ti 16GB",
-        "note": ".to('cuda') 방식은 OOM (21.52GB > 16GB VRAM)"
-    }
+    # 클럭 정보 기록
+    clock_info_before = get_gpu_clocks()
+    print(f"GPU Clocks (before): {clock_info_before}")
+    results["clock_info_before"] = clock_info_before
+
     monitor = VRAMMonitor(interval=0.1)
     monitor.start()
 
     # Phase 1: 데이터 로드
-    print("\nPhase 1: Loading dataset...")
+    print("Phase 1: Loading dataset...")
     t0 = time.time()
     clip_id = "030c760c-ae38-49aa-9ad8-f5650a545d26"
     data = load_physical_aiavdataset(clip_id, t0_us=5_100_000)
@@ -86,35 +80,35 @@ def main():
     results["data_load_time"] = t_data
 
     # Phase 2: 모델 로드 (device_map="auto")
-    print("\nPhase 2: Loading model with device_map='auto'...")
-    t_model_start = time.time() - monitor.t0  # 모니터 기준 타임스탬프
+    print("Phase 2: Loading model with device_map='auto'...")
+    model_load_start = time.time() - monitor.t0
     t0 = time.time()
-    model = AlpamayoR1.from_pretrained(
-        "nvidia/Alpamayo-R1-10B",
-        dtype=torch.bfloat16,
-        device_map="auto",
-    )
+    model = AlpamayoR1.from_pretrained("nvidia/Alpamayo-R1-10B", dtype=torch.bfloat16, device_map="auto")
     t_model = time.time() - t0
+    model_load_end = time.time() - monitor.t0
     print(f"  Model loaded: {t_model:.2f}s")
     results["model_load_time"] = t_model
-    results["model_load_start_t"] = t_model_start
-    results["model_load_end_t"] = t_model_start + t_model
-    results["vram_after_load_allocated"] = torch.cuda.memory_allocated() / 1024**3
-    results["vram_after_load_reserved"] = torch.cuda.memory_reserved() / 1024**3
+    results["model_load_start_t"] = model_load_start
+    results["model_load_end_t"] = model_load_end
+    results["vram_after_load"] = torch.cuda.memory_allocated() / 1024**3
 
-    # 레이어 배치 요약
-    dev_summary = get_device_map_summary(model)
-    print(f"  Device placement: {dev_summary}")
-    results["device_placement"] = dev_summary
+    # 클럭 정보 (로드 후)
+    clock_info_after_load = get_gpu_clocks()
+    print(f"GPU Clocks (after load): {clock_info_after_load}")
+    results["clock_info_after_load"] = clock_info_after_load
+
+    # Device map 요약
+    dm = model.hf_device_map
+    cuda_count = sum(1 for v in dm.values() if str(v) == '0')
+    cpu_count = sum(1 for v in dm.values() if str(v) == 'cpu')
+    results["device_placement"] = {"cuda": cuda_count, "cpu": cpu_count}
 
     # Phase 3: 입력 준비
-    print("\nPhase 3: Preparing inputs...")
     processor = helper.get_processor(model.tokenizer)
     inputs = processor.apply_chat_template(
         messages, tokenize=True, add_generation_prompt=False,
         continue_final_message=True, return_dict=True, return_tensors="pt",
     )
-    # device_map="auto" 시 입력은 첫 번째 레이어 device로
     first_device = next(model.parameters()).device
     model_inputs = {
         "tokenized_data": inputs,
@@ -124,8 +118,8 @@ def main():
     model_inputs = helper.to_device(model_inputs, first_device)
 
     # Phase 4: 추론
-    print("\nPhase 4: Running inference...")
-    t_infer_start = time.time() - monitor.t0
+    print("Phase 3: Running inference...")
+    inference_start = time.time() - monitor.t0
     torch.cuda.manual_seed_all(42)
     t0 = time.time()
     with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -138,10 +132,17 @@ def main():
             return_extra=True,
         )
     t_infer = time.time() - t0
+    inference_end = time.time() - monitor.t0
     print(f"  Inference done: {t_infer:.2f}s")
+
+    # 클럭 정보 (추론 직후)
+    clock_info_after_infer = get_gpu_clocks()
+    print(f"GPU Clocks (after inference): {clock_info_after_infer}")
+    results["clock_info_after_inference"] = clock_info_after_infer
+
     results["inference_time"] = t_infer
-    results["inference_start_t"] = t_infer_start
-    results["inference_end_t"] = t_infer_start + t_infer
+    results["inference_start_t"] = inference_start
+    results["inference_end_t"] = inference_end
 
     # Phase 5: 결과 계산
     gt_xy = data["ego_future_xyz"].cpu()[0, 0, :, :2].T.numpy()
@@ -150,36 +151,30 @@ def main():
     min_ade = float(diff.min())
     print(f"  minADE: {min_ade:.4f}m")
     results["minADE"] = min_ade
-    results["cot"] = extra["cot"][0]
+    results["cot"] = str(extra["cot"][0])
 
     monitor.stop()
 
-    # Peak VRAM
     results["peak_vram_allocated"] = max(monitor.allocated)
     results["peak_vram_reserved"] = max(monitor.reserved)
-    results["total_time"] = results["data_load_time"] + results["model_load_time"] + results["inference_time"]
+    results["gpu"] = "RTX 5070 Ti 16GB"
+    results["method"] = "device_map=auto (max clock)"
+    results["total_time"] = time.time() - (monitor.t0)
 
-    print(f"\n{'=' * 60}")
-    print(f"=== Results ===")
-    print(f"  Data load:    {results['data_load_time']:.2f}s")
-    print(f"  Model load:   {results['model_load_time']:.2f}s")
-    print(f"  Inference:    {results['inference_time']:.2f}s")
-    print(f"  Total:        {results['total_time']:.2f}s")
-    print(f"  Peak VRAM (allocated): {results['peak_vram_allocated']:.2f} GB")
-    print(f"  Peak VRAM (reserved):  {results['peak_vram_reserved']:.2f} GB")
-    print(f"  minADE: {results['minADE']:.4f}m")
-    print(f"  Device: {dev_summary}")
-    print(f"{'=' * 60}")
-
-    # JSON 저장
-    with open("/home/avees/workspace/baseline_results.json", "w") as f:
-        json.dump(results, f, indent=2, default=str)
     vram_data = monitor.to_dict()
-    with open("/home/avees/workspace/baseline_vram_timeline.json", "w") as f:
+
+    print(f"\n=== Results ===")
+    print(f"  Model load: {results['model_load_time']:.2f}s")
+    print(f"  Inference: {results['inference_time']:.2f}s")
+    print(f"  Peak VRAM: {results['peak_vram_allocated']:.2f} GB")
+    print(f"  minADE: {results['minADE']:.4f}m")
+
+    with open("/home/avees/workspace/baseline_maxclock_results.json", "w") as f:
+        json.dump(results, f, indent=2, default=str)
+    with open("/home/avees/workspace/baseline_maxclock_vram_timeline.json", "w") as f:
         json.dump(vram_data, f)
 
-    print("Results saved to /home/avees/workspace/")
-
+    print("Results saved.")
 
 if __name__ == "__main__":
     main()
