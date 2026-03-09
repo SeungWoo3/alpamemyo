@@ -1,0 +1,28 @@
+{
+  "config": "pinned_memory_device_map_auto",
+  "gpu": "NVIDIA GeForce RTX 5070 Ti",
+  "total_vram_gb": 15.46,
+  "data_load_time": 59.51,
+  "model_load_time": 58.11,
+  "model_load_start_t": 60.3645703792572,
+  "model_load_end_t": 118.47376847267151,
+  "device_placement": {
+    "cuda:0": 660,
+    "meta": 499
+  },
+  "cpu_params_gb": 0.0,
+  "pin_count": 0,
+  "pin_bytes_gb": 0.0,
+  "pin_time": 0.04,
+  "inference_time": 182.85,
+  "inference_start_t": 131.69755601882935,
+  "inference_end_t": 314.54592537879944,
+  "peak_vram_gb": 14.02,
+  "minADE": 2.5548,
+  "cot": "[['Nudge to the left to increase clearance from the construction cones encroaching into the lane.']]",
+  "error": null,
+  "gpu_info_after": "2835 MHz, 13801 MHz, 5, 16, 50.40 W",
+  "total_time": 313.89,
+  "peak_vram_allocated": 14.022343635559082,
+  "peak_vram_reserved": 14.203125
+}
