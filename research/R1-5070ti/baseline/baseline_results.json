@@ -1,0 +1,23 @@
+{
+  "method": "device_map=auto",
+  "gpu": "RTX 5070 Ti 16GB",
+  "note": ".to('cuda') \ubc29\uc2dd\uc740 OOM (21.52GB > 16GB VRAM)",
+  "data_load_time": 60.103745460510254,
+  "model_load_time": 53.16562867164612,
+  "model_load_start_t": 60.10511112213135,
+  "model_load_end_t": 113.27073979377747,
+  "vram_after_load_allocated": 11.965096473693848,
+  "vram_after_load_reserved": 11.966796875,
+  "device_placement": {
+    "cuda:0": 649,
+    "meta": 510
+  },
+  "inference_time": 184.99223160743713,
+  "inference_start_t": 126.36050057411194,
+  "inference_end_t": 311.3527321815491,
+  "minADE": 2.554809331893921,
+  "cot": "[['Nudge to the left to increase clearance from the construction cones encroaching into the lane.']]",
+  "peak_vram_allocated": 13.664459228515625,
+  "peak_vram_reserved": 13.97265625,
+  "total_time": 298.2616057395935
+}
